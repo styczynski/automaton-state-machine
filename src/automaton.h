@@ -1,6 +1,8 @@
 #ifndef __AUTOMATON_H__
 #define __AUTOMATON_H__
 
+#include "automaton_config.h"
+
 #include <string.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -11,10 +13,6 @@
 
 typedef struct TransitionGraphImpl TransitionGraphImpl;
 typedef TransitionGraphImpl* TransitionGraph;
-
-#define MAX_Q 30
-#define MAX_A 107
-#define LINE_BUF_SIZE 1000
 
 
 struct TransitionGraphImpl {

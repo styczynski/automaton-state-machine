@@ -50,7 +50,7 @@ MsgQueue msgQueueOpen(const char* q_name, const int msg_size, const int max_msg)
         msgq.mq_a.mq_curmsgs = 0;
     }
     
-    printf("mq_open(%s)\n", msgq.name);
+    //printf("mq_open(%s)\n", msgq.name);
     msgq.desc = mq_open(msgq.name, O_RDWR | O_CREAT, 0664, &msgq.mq_a);
     if(msgq.desc == (mqd_t) -1) {
         syserr("Error in mq_open");
@@ -105,9 +105,10 @@ int msgQueueReadf(MsgQueue msgq, const char* format, ...) {
 
 int msgQueueWrite(MsgQueue msgq, char* message) {
     if(msgq.name == NULL) return -1;
-    int ret = mq_send(msgq.desc, message, strlen(message), 1);
+    int ret = mq_send(msgq.desc, message, strlen(message) + 1, 1);
     if(ret) {
         syserr("Error in mq_send");
+        return -1;
     }
     return ret;
 }
@@ -120,41 +121,40 @@ int msgQueueWritef(MsgQueue msgq, const char* format, ...) {
     va_list args;
     va_start(args, format);
     vsprintf(buffer, format, args);
-    perror(buffer);
     va_end(args);
     
     return msgQueueWrite(msgq, buffer);
 }
 
-int msgQueueCloseEx(MsgQueue msgq, int unlink) {
-    if(msgq.name == NULL) return -1;
+int msgQueueCloseEx(MsgQueue* msgq, int unlink) {
+    if(msgq->name == NULL) return -1;
     
-    if(mq_close(msgq.desc)) {
+    if(mq_close(msgq->desc)) {
         syserr("Error in close:");
         return -1;
     }
     
     if(unlink) {
-        if(mq_unlink(msgq.name)) {
+        if(mq_unlink(msgq->name)) {
             syserr("Error in unlink:");
             return -1;
         }
     }
     
-    free(msgq.name);
-    free(msgq.buff);
+    free(msgq->name);
+    free(msgq->buff);
     
-    msgq.name = NULL;
-    msgq.buff = NULL;
+    msgq->name = NULL;
+    msgq->buff = NULL;
     
     return 1;
 }
 
-int msgQueueRemove(MsgQueue msgq) {
+int msgQueueRemove(MsgQueue* msgq) {
     return msgQueueCloseEx(msgq, 1);
 }
 
-int msgQueueClose(MsgQueue msgq) {
+int msgQueueClose(MsgQueue* msgq) {
     return msgQueueCloseEx(msgq, 0);
 }
 
