@@ -126,6 +126,15 @@ int msgQueueWritef(MsgQueue msgq, const char* format, ...) {
     return msgQueueWrite(msgq, buffer);
 }
 
+char* msgQueueSeek(MsgQueue msgq) {
+    if(msgq.name == NULL) return NULL;
+    
+    char* ret = msgQueueRead(msgq);
+    msgQueueWrite(msgq, ret);
+    
+    return ret;
+}
+
 int msgQueueCloseEx(MsgQueue* msgq, int unlink) {
     if(msgq->name == NULL) return -1;
     

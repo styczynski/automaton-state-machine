@@ -51,6 +51,20 @@ TransitionGraph newTransitionGraph() {
     return tg;
 }
 
+char* loadTransitionGraphDesc(FILE* input) {
+    fseek(input, 0, SEEK_END);
+    long fsize = ftell(input);
+    
+    fseek(input, 0, SEEK_SET);
+    char *buff = malloc(fsize + 1);
+    
+    fread(buff, fsize, 1, input);
+    fclose(input);
+    
+    buff[fsize] = 0;
+    return buff;
+}
+
 void loadTransitionGraph(FILE* input, TransitionGraph tg) {
     
     if(input == NULL) return;

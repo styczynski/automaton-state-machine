@@ -5,12 +5,25 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#ifdef NO_LOG
+
+#define log(LABEL, ...)      
+#define log_info(LABEL, ...) 
+#define log_ok(LABEL, ...)   
+#define log_warn(LABEL, ...) 
+#define log_err(LABEL, ...)  
+
+void log_formated(int loglevel, const char* label, FILE* out, const char* function_name, const char* format, ...) {
+    // Empty function
+};
+
+#else
+
 #define log(LABEL, ...)      log_formated(0, LABEL, NULL, __func__, __VA_ARGS__)
 #define log_info(LABEL, ...) log_formated(1, LABEL, NULL, __func__, __VA_ARGS__)
 #define log_ok(LABEL, ...)   log_formated(2, LABEL, NULL, __func__, __VA_ARGS__)
 #define log_warn(LABEL, ...) log_formated(3, LABEL, NULL, __func__, __VA_ARGS__)
 #define log_err(LABEL, ...)  log_formated(4, LABEL, NULL, __func__, __VA_ARGS__)
-
 
 void log_formated(int loglevel, const char* label, FILE* out, const char* function_name, const char* format, ...) {
     va_list args;
@@ -43,7 +56,7 @@ void log_formated(int loglevel, const char* label, FILE* out, const char* functi
         fprintf(out, " %-8s  ", "  ");
     }
     
-    fprintf(out, "%-10s ", function_name);
+    fprintf(out, " %-5d %-10s ", getpid(), function_name);
     vfprintf(out, format, args);
     fprintf(out, "\n");
     va_end(args);
@@ -52,5 +65,6 @@ void log_formated(int loglevel, const char* label, FILE* out, const char* functi
     fflush(stdout);
 }
 
+#endif // NO_LOG
 
 #endif // __SYS_LOG_H__
