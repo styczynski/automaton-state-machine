@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <mqueue.h>
+#include <stdarg.h>
 #include "syserr.h"
 
 #define MAX_MSG_QUEUE_NAME_SIZE 30
@@ -50,7 +51,7 @@ MsgQueue msgQueueOpen(const char* q_name, const int msg_size, const int max_msg)
     }
     
     printf("mq_open(%s)\n", msgq.name);
-    msgq.desc = mq_open(msgq.name, O_RDWR | O_CREAT);
+    msgq.desc = mq_open(msgq.name, O_RDWR | O_CREAT, 0664, &msgq.mq_a);
     if(msgq.desc == (mqd_t) -1) {
         syserr("Error in mq_open");
         free(msgq.name);
@@ -76,7 +77,7 @@ MsgQueue msgQueueOpen(const char* q_name, const int msg_size, const int max_msg)
     return msgq;
 }
 
-char* msgQueueRcv(MsgQueue msgq) {
+char* msgQueueRead(MsgQueue msgq) {
     if(msgq.name == NULL) return NULL;
     
     int ret = mq_receive(msgq.desc, msgq.buff, msgq.buff_size, NULL);
@@ -88,14 +89,41 @@ char* msgQueueRcv(MsgQueue msgq) {
     return msgq.buff;
 }
 
-int msgQueueSend(MsgQueue msgq, char* message) {
+int msgQueueReadf(MsgQueue msgq, const char* format, ...) {
     if(msgq.name == NULL) return -1;
     
+    char* rcvMessage = msgQueueRead(msgq);
+    if(rcvMessage == NULL) return -1;
+    
+    va_list args;
+    va_start(args, format);
+    int resultCode = vsscanf(rcvMessage, format, args);
+    va_end(args);
+    
+    return resultCode;
+}
+
+int msgQueueWrite(MsgQueue msgq, char* message) {
+    if(msgq.name == NULL) return -1;
     int ret = mq_send(msgq.desc, message, strlen(message), 1);
     if(ret) {
         syserr("Error in mq_send");
     }
     return ret;
+}
+
+int msgQueueWritef(MsgQueue msgq, const char* format, ...) {
+    if(msgq.name == NULL) return -1;
+    
+    char buffer[msgq.buff_size + 7];
+    
+    va_list args;
+    va_start(args, format);
+    vsprintf(buffer, format, args);
+    perror(buffer);
+    va_end(args);
+    
+    return msgQueueWrite(msgq, buffer);
 }
 
 int msgQueueCloseEx(MsgQueue msgq, int unlink) {

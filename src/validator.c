@@ -2,6 +2,8 @@
 #include "getline.h"
 #include "automaton.h"
 #include "msg_queue.h"
+#include "msg_pipe.h"
+#include "fork.h"
 #include "syserr.h"
 
 
@@ -11,25 +13,42 @@ int main(void) {
     loadTransitionGraph(stdin, tg);
     printTransitionGraph(tg);
     
-    MsgQueue taskQueue = msgQueueOpen("/fin_autom_tsk_queue", 30, 10);
+    /*MsgQueue taskQueue = msgQueueOpen("/FinAutomTskQueue", 30, 10);
+    pid_t pid;
+    if(processExec(&pid, "./run", "run", NULL)) return 0;
+    printf("I am a parent and my pid is %d\n", getpid());
+    msgQueueWritef(taskQueue, "Hello: %d", 5);
+    processWait();
+    msgQueueRemove(taskQueue);*/
+    
+    MsgPipeID taskPipeID = msgPipeCreate(100);
     
     pid_t pid;
-    switch (pid = fork()) {
-        case -1:
-          syserr("Error in fork\n");
-          return 0;
-        case 0:
-          printf("I am a child and my pid is %d\n", getpid());      
-          execlp("./run", "run", NULL);
-          syserr("Error in execlp\n");
-          return 0;
-        default:
-          printf("I am a parent and my pid is %d\n", getpid());
-          msgQueueSend(taskQueue, "Hello world!");
-          if (wait(0) == -1) syserr("Error in wait\n");
-          msgQueueRemove(taskQueue);
-          return 0;
-    } 
+    if(processFork(&pid)) {
+        
+        MsgPipe taskPipe = msgPipeOpen(taskPipeID);
+        
+        printf("? Child\n");
+        msgPipeCloseWrite(&taskPipe);
+        
+        for(int t=0;t<1;++t) {
+            int v = 0;
+            printf("--> %s\n", msgPipeRead(taskPipe));
+        }
+        
+        msgPipeClose(&taskPipe);
+    } else {
+        MsgPipe taskPipe = msgPipeOpen(taskPipeID);
+        
+        printf("? Parent\n");
+        msgPipeCloseRead(&taskPipe);
+        
+        msgPipeWritef(taskPipe, "1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16.17.18:%d", 42);
+        processWait();
+        printf("? Parent finish\n");
+        
+        msgPipeClose(&taskPipe);
+    }
     
     return 0;
 }

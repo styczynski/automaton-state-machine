@@ -2,18 +2,19 @@
 #include "getline.h"
 #include "automaton.h"
 #include "msg_queue.h"
+#include "msg_pipe.h"
 #include "syserr.h"
 
 int main(void) {
     
     printf("Run hello!\n");
     
-    MsgQueue taskQueue = msgQueueOpen("/fin_autom_tsk_queue", 30, 10);
-    
-    char* msg = msgQueueRcv(taskQueue);
-    if(msg) printf("Received queue message: {%s}\n", msg);
-    
+    MsgQueue taskQueue = msgQueueOpen("/FinAutomTskQueue", 30, 10);
+    int v = 0;
+    msgQueueReadf(taskQueue, "Hello: %d", &v);
+    printf("Got value = %d\n", v);
     msgQueueClose(taskQueue);
+    
     
     return 0;
 }
