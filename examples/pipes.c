@@ -16,7 +16,6 @@ int main(void) {
         msgPipeCloseWrite(&taskPipe);
         
         for(int t=0;t<1;++t) {
-            int v = 0;
             printf("--> %s\n", msgPipeRead(taskPipe));
         }
         

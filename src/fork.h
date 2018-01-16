@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stddef.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #include "syserr.h"

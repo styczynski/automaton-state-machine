@@ -1,12 +1,18 @@
 #ifndef __MSG_QUEUE_H__
 #define __MSG_QUEUE_H__
 
+#ifndef DEBUG_MSG_QUEUE
+#define DEBUG_MSG_QUEUE 0
+#endif // DEBUG_MSG_QUEUE
+
+
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <mqueue.h>
 #include <stdarg.h>
 #include "syserr.h"
+#include "syslog.h"
 
 #define MAX_MSG_QUEUE_NAME_SIZE 30
 
@@ -81,6 +87,8 @@ char* msgQueueRead(MsgQueue msgq) {
     if(msgq.name == NULL) return NULL;
     
     int ret = mq_receive(msgq.desc, msgq.buff, msgq.buff_size, NULL);
+    log_debug(DEBUG_MSG_QUEUE, MSGQUE, "Read from msg_queue named %s message into buffer of size = %d: {%s}", msgq.name, msgq.buff_size, msgq.buff);
+    
     if(ret < 0) {
         syserr("Error in mq_receive");
         return NULL;
@@ -105,6 +113,9 @@ int msgQueueReadf(MsgQueue msgq, const char* format, ...) {
 
 int msgQueueWrite(MsgQueue msgq, char* message) {
     if(msgq.name == NULL) return -1;
+    
+    log_debug(DEBUG_MSG_QUEUE, MSGQUE, "Write into msg_queue named %s message of size = %d {%s}", msgq.name, strlen(message), message);
+    
     int ret = mq_send(msgq.desc, message, strlen(message) + 1, 1);
     if(ret) {
         syserr("Error in mq_send");

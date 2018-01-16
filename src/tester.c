@@ -15,7 +15,7 @@ int main(void) {
     size_t line_buf_size = LINE_BUF_SIZE;
     
     while(getline(&line_buf, &line_buf_size, stdin)) {
-        log("TESTER", "Sent work for verification: %s", line_buf);
+        log(TESTER, "Sent work for verification: %s", line_buf);
         msgQueueWritef(reportQueue, "parse: %s", line_buf);
     }
     

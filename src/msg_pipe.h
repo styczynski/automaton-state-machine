@@ -1,11 +1,16 @@
 #ifndef __MSG_PIPE_H__
 #define __MSG_PIPE_H__
 
+#ifndef DEBUG_MSG_PIPE
+#define DEBUG_MSG_PIPE 0
+#endif // DEBUG_MSG_PIPE
+
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <stdarg.h>
 #include "syserr.h"
+#include "syslog.h"
 
 typedef struct MsgPipe MsgPipe;
 typedef struct MsgPipeID MsgPipeID;
@@ -37,6 +42,24 @@ MsgPipeID msgPipeCreate(const int msg_size) {
     msgpid.buff_size = msg_size + 7;
     msgpid.good = 1;
     
+    return msgpid;
+}
+
+int msgPipeIDToStr(MsgPipeID msgpid, char* out) {
+    if(!msgpid.good) {
+        out[0] = '\0';
+        return -1;
+    }
+    sprintf(out, "p%d@%d[%d]", msgpid.pipe_desc[0], msgpid.pipe_desc[1], msgpid.buff_size );
+    return 1;
+}
+
+MsgPipeID msgPipeIDFromStr(char* in) {
+    MsgPipeID msgpid;
+    msgpid.good = 1;
+    if(!sscanf(in, "p%d@%d[%d]", &msgpid.pipe_desc[0], &msgpid.pipe_desc[1], &msgpid.buff_size )) {
+        msgpid.good = 0;
+    }
     return msgpid;
 }
 
@@ -109,6 +132,8 @@ int msgPipeClose(MsgPipe* msgp) {
 char* msgPipeRead(MsgPipe msgp) {
     if(!msgp.good || !msgp.opened_read) return NULL;
     
+    log_debug(DEBUG_MSG_PIPE, MSGPIP, "Read from desc %d into buff of size = %d", msgp.pipe_desc[0], msgp.buff_size);
+    
     int read_len = 0;
     if((read_len = read(msgp.pipe_desc[0], msgp.buff, msgp.buff_size - 1)) == -1) {
         syserr("Error in read\n");
@@ -141,7 +166,10 @@ int msgPipeReadf(MsgPipe msgp, const char* format, ...) {
 int msgPipeWrite(MsgPipe msgp, char* message) {
     if(!msgp.good || !msgp.opened_write) return -1;
     
-    if(write(msgp.pipe_desc[1], message, sizeof(message)) != sizeof(message)) {
+    const int message_len = strlen(message);
+    log_debug(DEBUG_MSG_PIPE, MSGPIP, "Write into desc %d message of size = %d", msgp.pipe_desc[1], message_len);
+    
+    if(write(msgp.pipe_desc[1], message, message_len) != message_len) {
         syserr("Error in write\n");
         return -1;
     }

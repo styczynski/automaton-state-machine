@@ -25,6 +25,8 @@ file(GLOB SRC_FILES_VALIDATOR ./src/validator.c)
 file(GLOB SRC_FILES_TESTER    ./src/tester.c)
 file(GLOB SRC_FILES_RUN       ./src/run.c)
 
+file(GLOB SRC_FILES_EX_PIPES ./examples/pipes.c)
+
 # Specify source files
 find_package (Threads)
 
@@ -36,3 +38,6 @@ target_link_libraries(tester ${CMAKE_THREAD_LIBS_INIT} rt)
 
 add_executable(run ${SRC_FILES_RUN})
 target_link_libraries(run ${CMAKE_THREAD_LIBS_INIT} rt)
+
+add_executable(pipes ${SRC_FILES_EX_PIPES})
+target_link_libraries(pipes ${CMAKE_THREAD_LIBS_INIT} rt)
