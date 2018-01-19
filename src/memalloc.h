@@ -150,10 +150,10 @@ static inline void* AllocateMemoryBlockArray(int count, int size) {
 * @return void* to allocated memory array
 */
 static inline void* ReallocateMemoryBlockArray(void* p, int count, int size) {
-  if(p == NULL) return AllocateMemoryBlockArray(count, size);
+  //if(p == NULL) return AllocateMemoryBlockArray(count, size);
   assert(count > 0);
   assert(size > 0);
-
+  
   void* data = realloc(p, count * size);
   assert(data != NULL);
 

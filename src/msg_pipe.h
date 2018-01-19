@@ -41,7 +41,9 @@ MsgPipeID msgPipeCreate(const int msg_size) {
     
     msgpid.buff_size = msg_size + 7;
     msgpid.good = 1;
-    
+ 
+    //log_err(MSGPIP, " >>> Create pipe: %d%d", msgpid.pipe_desc[0], msgpid.pipe_desc[1]);
+ 
     return msgpid;
 }
 
@@ -113,6 +115,10 @@ int msgPipeCloseWrite(MsgPipe* msgp) {
 
 int msgPipeAbandon(MsgPipe* msgp) {
     if(msgp == NULL) return -1;
+    
+    //log_err(MSGPIP, " >>> Abandon pipe: %d%d", msgp->pipe_desc[0], msgp->pipe_desc[1]);
+    
+    log_debug(DEBUG_MSG_PIPE, MSGPIP, "Abandon pipe: %d%d", msgp->pipe_desc[0], msgp->pipe_desc[1]);
     
     if(!msgp->good) {
         return -1;

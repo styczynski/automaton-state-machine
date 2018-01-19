@@ -17,6 +17,8 @@ struct RunSlot {
     MsgPipeID graphDataPipeID;
     MsgPipe graphDataPipe;
     pid_t pid;
+    pid_t testerSourcePid;
+    int loc_id;
 };
 
 struct TesterSlot {
@@ -35,6 +37,7 @@ int main(void) {
     char buffer[LINE_BUF_SIZE];
     long long buffer_pid;
     int buffer_result;
+    int loc_id;
     
     log_ok(SERVER, "Server is up.");
     
@@ -50,11 +53,13 @@ int main(void) {
         if(strcmp(msg, "exit") == 0) {
             log_warn(SERVER, "Server received termination command and will close. Be aware.");
             shouldTerminate = 1;
-        } else if(!shouldTerminate && sscanf(msg, "parse: %[^NULL]", buffer)) {
+        } else if(!shouldTerminate && sscanf(msg, "parse: %lld %d %[^NULL]", &buffer_pid, &loc_id, buffer)) {
             log(SERVER, "Received word {%s}", buffer);
             pid_t pid;
      
             RunSlot rs;
+            rs.loc_id = loc_id;
+            rs.testerSourcePid = (pid_t) buffer_pid;
             rs.graphDataPipeID = msgPipeCreate(100);
             rs.graphDataPipe = msgPipeOpen(rs.graphDataPipeID);
             
@@ -69,7 +74,7 @@ int main(void) {
             if(processExec(&pid, "./run", "run", graphDataPipeIDStr, NULL)) return 0;
             
             rs.pid = pid;
-            HashMapSetV(runSlots, pid_t, RunSlot, pid, rs);
+            HashMapSetV(&runSlots, pid_t, RunSlot, pid, rs);
             
         } else if(sscanf(msg, "tester-register: %lld %[^NULL]", &buffer_pid, buffer)) {
            
@@ -82,20 +87,38 @@ int main(void) {
            ts.testerInputQueue = msgQueueOpen(buffer, 50, 10);
            
            strcpy(&(ts.queueName), buffer);
-           HashMapSetV(testerSlots, pid_t, TesterSlot, pid, ts);
+           HashMapSetV(&testerSlots, pid_t, TesterSlot, pid, ts);
            
         } else if(sscanf(msg, "run-terminate: %lld %d", &buffer_pid, &buffer_result)) {
             --activeTasksCount;
             log(SERVER, "Run terminated: %lld for result: %d", buffer_pid, buffer_result);
             
             pid_t pid = (pid_t) buffer_pid;
-            RunSlot* rs = HashMapGetV(runSlots, pid_t, RunSlot, pid);
+            RunSlot* rs = HashMapGetV(&runSlots, pid_t, RunSlot, pid);
             
             if(rs == NULL) {
                 log_err(SERVER, "Missing run slot info for pid=%d", pid);
             } else {
                 msgPipeClose(&(rs->graphDataPipe));
-                HashMapRemoveV(runSlots, pid_t, RunSlot, pid);
+            
+                TesterSlot* ts = NULL;
+                LOOP_HASHMAP(&testerSlots, i) {
+                    ts = (TesterSlot*) HashMapGetValue(i);
+                    if(ts != NULL) {
+                        if(ts->pid == rs->testerSourcePid) {
+                            break;
+                        }
+                    }
+                }
+                
+                if(ts == NULL) {
+                    log_err(SERVER, "Missing tester slot info for run of pid=%d (tester pid=%d)", rs->pid, ts->pid);
+                } else {
+                    msgQueueWritef(ts->testerInputQueue, "%d answer: %d", rs->loc_id, buffer_result);
+                }
+                
+                HashMapRemoveV(&runSlots, pid_t, RunSlot, pid);
+            
             }
             
             if(activeTasksCount <= 0 && shouldTerminate) {
@@ -108,8 +131,18 @@ int main(void) {
     
     log_warn(SERVER, "Terminating server...");
     
-    HashMapDestroyV(runSlots, pid_t, RunSlot);
-    HashMapDestroyV(testerSlots, pid_t, TesterSlot);
+    LOOP_HASHMAP(&runSlots, i) {
+        RunSlot* rs = (RunSlot*) HashMapGetValue(i);
+        msgPipeClose(&(rs->graphDataPipe));
+    }
+    
+    LOOP_HASHMAP(&testerSlots, i) {
+        TesterSlot* ts = (TesterSlot*) HashMapGetValue(i);
+        msgQueueClose(&(ts->testerInputQueue));
+    }
+    
+    HashMapDestroyV(&runSlots, pid_t, RunSlot);
+    HashMapDestroyV(&testerSlots, pid_t, TesterSlot);
     
     msgQueueRemove(&reportQueue);
     msgQueueRemove(&taskQueue);

@@ -59,12 +59,15 @@ void ArrayListResize(ArrayList* l, const int min_size) {
 * Function resizing the list to have at least @p min_size elements
 */
 void ArrayListResizeFill(ArrayList* l, const int min_size) {
+  
   if(l->size >= min_size) return;
+  int oldSize = l->size;
   ArrayListResize(l, min_size + 30);
-  for(int i=l->size;i<min_size;++i) {
+  for(int i=oldSize;i<min_size;++i) {
       (l->data)[i] = NULL;
   }
   l->size = min_size;
+  
 }
 
 /*

@@ -7,23 +7,26 @@
 #include "array_lists.h"
 #include "dynamic_lists.h"
 
+#define HASH_MAP_FACT_P 350
+#define HASH_MAP_FACT_Q 1000000009
+
 #define HashMapSetV(HASHMAP, KEY_TYPE, VALUE_TYPE, KEY, VALUE) \
   do { \
       KEY_TYPE* __key_ptr__ = MALLOCATE(KEY_TYPE); \
       *__key_ptr__ = (KEY); \
       VALUE_TYPE* __val_ptr__ = MALLOCATE(VALUE_TYPE); \
       *__val_ptr__ = (VALUE); \
-      HashMapSetDeep((HASHMAP), __key_ptr__, __val_ptr__); \
+      HashMapSetDeep((HASHMAP), sizeof(KEY_TYPE), __key_ptr__, __val_ptr__); \
   } while(0)
   
 #define HashMapGetV(HASHMAP, KEY_TYPE, VALUE_TYPE, KEY) \
-  (((VALUE_TYPE*)HashMapGet((HASHMAP), &(KEY))))
+  (((VALUE_TYPE*)HashMapGet((HASHMAP), sizeof(KEY_TYPE), &(KEY))))
 
 #define HashMapHasV(HASHMAP,KEY_TYPE, VALUE_TYPE, KEY) \
-  (HashMapHas((HASHMAP), &(K EY)))
+  (HashMapHas((HASHMAP), sizeof(KEY_TYPE), &(K EY)))
   
 #define HashMapRemoveV(HASHMAP, KEY_TYPE, VALUE_TYPE, KEY) \
-  (HashMapRemoveDeep((HASHMAP), &(KEY)));
+  (HashMapRemoveDeep((HASHMAP), sizeof(KEY_TYPE), &(KEY)));
       
 #define HashMapDestroyV(HASHMAP, KEY_TYPE, VALUE_TYPE) \
  (HashMapDestroyDeep((HASHMAP)))
@@ -100,12 +103,28 @@ static inline HashMap HashMapNew(HashMapComparatorFn keyComparator) {
     return hm;
 }
 
-static inline HashMapData HashMapGet(HashMap hm, HashMapKey key) {
+static inline int HashMapCalcHash(const int key_size, HashMapKey key) {
+    
+    int hash = 0;
+    char* ptr = (char*) key;
+    for(int i=0;i<key_size;++i) {
+        hash += ptr[i] * HASH_MAP_FACT_P;
+        hash %= HASH_MAP_FACT_Q;
+    }
+    if(hash<0) hash*=-1;
+    hash = 1000;
+    
+    log_info(HASHMAP, "hash is %d", hash);
+    
+    return hash;
+}
+
+static inline HashMapData HashMapGet(HashMap* hm, const int key_size, HashMapKey key) {
     if(key == NULL) return NULL;
     
-    const int hash = 42;
+    const int hash = HashMapCalcHash(key_size, key);
     
-    HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm.nodes, hash);
+    HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm->nodes, hash);
     if(currentNode == NULL) {
         return NULL;
     }
@@ -114,7 +133,7 @@ static inline HashMapData HashMapGet(HashMap hm, HashMapKey key) {
         HashMapElement* element = (HashMapElement*) ListGetValue(i);
         if(element != NULL) {
             if(element->key != NULL) {
-                if(hm.cmp(element->key, key)) {
+                if(hm->cmp(element->key, key)) {
                     return element->value;
                 }
             }
@@ -124,16 +143,16 @@ static inline HashMapData HashMapGet(HashMap hm, HashMapKey key) {
     return NULL;
 }
 
-static inline int HashMapHas(HashMap hm, HashMapKey key) {
-    return HashMapGet(hm, key) != NULL;
+static inline int HashMapHas(HashMap* hm, const int key_size, HashMapKey key) {
+    return HashMapGet(hm, key_size, key) != NULL;
 }
 
-static inline HashMapData HashMapRemove(HashMap hm, HashMapKey key) {
+static inline HashMapData HashMapRemove(HashMap* hm, const int key_size, HashMapKey key) {
     if(key == NULL) return NULL;
     
-    const int hash = 42;
+    const int hash = HashMapCalcHash(key_size, key);
     
-    HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm.nodes, hash);
+    HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm->nodes, hash);
     if(currentNode == NULL) {
         return NULL;
     }
@@ -142,7 +161,7 @@ static inline HashMapData HashMapRemove(HashMap hm, HashMapKey key) {
         HashMapElement* element = (HashMapElement*) ListGetValue(i);
         if(element != NULL) {
             if(element->key != NULL) {
-                if(hm.cmp(element->key, key)) {
+                if(hm->cmp(element->key, key)) {
                     HashMapData ret = element->value;
                     ListDetachElement(&(currentNode->values), i);
                     free(element);
@@ -156,12 +175,12 @@ static inline HashMapData HashMapRemove(HashMap hm, HashMapKey key) {
 
 
 
-static inline void HashMapRemoveDeep(HashMap hm, HashMapKey key) {
+static inline void HashMapRemoveDeep(HashMap* hm, const int key_size, HashMapKey key) {
     if(key == NULL) return;
     
-    const int hash = 42;
+    const int hash = HashMapCalcHash(key_size, key);
     
-    HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm.nodes, hash);
+    HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm->nodes, hash);
     if(currentNode == NULL) {
         return;
     }
@@ -170,7 +189,7 @@ static inline void HashMapRemoveDeep(HashMap hm, HashMapKey key) {
         HashMapElement* element = (HashMapElement*) ListGetValue(i);
         if(element != NULL) {
             if(element->key != NULL) {
-                if(hm.cmp(element->key, key)) {
+                if(hm->cmp(element->key, key)) {
                     free(element->value);
                     free(element->key);
                     ListDetachElement(&(currentNode->values), i);
@@ -184,8 +203,8 @@ static inline void HashMapRemoveDeep(HashMap hm, HashMapKey key) {
 }
 
 
-static inline void HashMapDestroy(HashMap hm) {
-    LOOP_ARRAY_LIST(&(hm.nodes), i) {
+static inline void HashMapDestroy(HashMap* hm) {
+    LOOP_ARRAY_LIST(&(hm->nodes), i) {
         HashMapNode* currentNode = (HashMapNode*) ArrayListGetValue(i);
         LOOP_LIST(&(currentNode->values), j) {
             HashMapElement* element = (HashMapElement*) ListGetValue(j);
@@ -196,11 +215,11 @@ static inline void HashMapDestroy(HashMap hm) {
         ListDestroy(&(currentNode->values));
         free(currentNode);
     }
-    ArrayListDestroy(&(hm.nodes));
+    ArrayListDestroy(&(hm->nodes));
 }
 
-static inline void HashMapDestroyDeep(HashMap hm) {
-    LOOP_ARRAY_LIST(&(hm.nodes), i) {
+static inline void HashMapDestroyDeep(HashMap* hm) {
+    LOOP_ARRAY_LIST(&(hm->nodes), i) {
         HashMapNode* currentNode = (HashMapNode*) ArrayListGetValue(i);
         LOOP_LIST(&(currentNode->values), j) {
             HashMapElement* element = (HashMapElement*) ListGetValue(j);
@@ -213,16 +232,16 @@ static inline void HashMapDestroyDeep(HashMap hm) {
         ListDestroy(&(currentNode->values));
         free(currentNode);
     }
-    ArrayListDestroy(&(hm.nodes));
+    ArrayListDestroy(&(hm->nodes));
 }
 
-static inline HashMapData HashMapSet(HashMap hm, HashMapKey key, HashMapData value) {
+static inline HashMapData HashMapSet(HashMap* hm, const int key_size, HashMapKey key, HashMapData value) {
     if(key == NULL) return NULL;
-    HashMapData oldData = HashMapRemove(hm, key);
+    HashMapData oldData = HashMapRemove(hm, key_size, key);
   
-    const int hash = 42;
+    const int hash = HashMapCalcHash(key_size, key);
     
-    HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm.nodes, hash);
+    HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm->nodes, hash);
     if(currentNode == NULL) {
         currentNode = HashMapCreateNode();
     }
@@ -230,19 +249,19 @@ static inline HashMapData HashMapSet(HashMap hm, HashMapKey key, HashMapData val
     HashMapElement* element = HashMapCreateElement(key, value);
     ListPushBack(&(currentNode->values), element);
     
-    ArrayListSetValueAt(&hm.nodes, hash, currentNode);
+    ArrayListSetValueAt(&hm->nodes, hash, currentNode);
     
     return oldData;
 }
 
 
-static inline void HashMapSetDeep(HashMap hm, HashMapKey key, HashMapData value) {
+static inline void HashMapSetDeep(HashMap* hm, const int key_size, HashMapKey key, HashMapData value) {
     if(key == NULL) return;;
-    HashMapRemoveDeep(hm, key);
+    HashMapRemoveDeep(hm, key_size, key);
   
-    const int hash = 42;
+    const int hash = HashMapCalcHash(key_size, key);
     
-    HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm.nodes, hash);
+    HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm->nodes, hash);
     if(currentNode == NULL) {
         currentNode = HashMapCreateNode();
     }
@@ -250,7 +269,7 @@ static inline void HashMapSetDeep(HashMap hm, HashMapKey key, HashMapData value)
     HashMapElement* element = HashMapCreateElement(key, value);
     ListPushBack(&(currentNode->values), element);
     
-    ArrayListSetValueAt(&hm.nodes, hash, currentNode);
+    ArrayListSetValueAt(&hm->nodes, hash, currentNode);
 }
 
 static inline HashMapIterator HashMapNext(HashMapIterator iter) {
