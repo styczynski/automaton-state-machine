@@ -51,9 +51,13 @@
 #define syserr(...)           
 #endif // SYS_LOG_HANDLE_FATALS == 1
 
+#define log_formated(...)     
+
+/*
 void log_formated(int loglevel, const int print_errno, const char* label, FILE* out, const char* function_name, const char* format, ...) {
     // Empty function
 };
+*/
 
 #else // NO_LOG
 
