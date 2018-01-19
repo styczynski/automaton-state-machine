@@ -41,7 +41,6 @@ static void ListDestroyRecLeft(ListNode* l) {
   if(l->left != NULL) {
     ListDestroyRecLeft(l->left);
   }
-  DBG {printf("FREE Lists.MListDestroyRecLeft %p\n", (void*)l);fflush(stdout);}
   free(l);
 }
 
@@ -101,7 +100,6 @@ ListData ListPopFront(List* l) {
     } else {
       (l->end) = NULL;
     }
-    DBG {printf("FREE Lists.ListPopFront %p\n", (void*)(l->begin));fflush(stdout);}
     free(l->begin);
     (l->begin) = new_begin;
     return val;
@@ -153,7 +151,6 @@ void ListDestroy(List* l) {
   ListNode* it = l->begin;
   while(it != NULL) {
     ListNode* next = it->right;
-    //DBG {printf("FREE Lists.MListDestroy %p\n", (void*)it);fflush(stdout);}
     free(it);
     it = next;
   }
@@ -345,7 +342,6 @@ void ListDetachElement( List* l, ListNode* node ) {
   } else {
     l->end = left_neighbour;
   }
-  DBG {printf("FREE Lists.ListDetachElement %p\n", (void*)node);fflush(stdout);}
   free(node);
 }
 
@@ -354,7 +350,6 @@ void ListDetachElement( List* l, ListNode* node ) {
 */
 ListNode* ListNewDetachedElement() {
   ListNode* ret = MALLOCATE(ListNode);
-  DBG {printf("MALLOC Lists.ListNewDetachedElement %p\n", (void*)ret);fflush(stdout);}
   ret->left = NULL;
   ret->right = NULL;
   ret->value = NULL;

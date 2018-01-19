@@ -140,7 +140,7 @@ int acceptAsync(TransitionGraph tg, char* word) {
 int main(int argc, char *argv[]) {
     
     
-    MsgQueue reportQueue = msgQueueOpen("/FinAutomReportQueue", 30, 10);
+    MsgQueue reportQueue = msgQueueOpen("/FinAutomReportQueue", 50, 10);
     MsgQueue taskQueue = msgQueueOpen("/FinAutomTaskQueue", 30, 10);
     
     MsgPipeID graphDataPipeID = msgPipeIDFromStr(argv[1]);
@@ -169,7 +169,7 @@ int main(int argc, char *argv[]) {
     }
     
     log(RUN, "Terminate.");
-    msgQueueWritef(reportQueue, "run-terminate: %lld", (long long)getpid());
+    msgQueueWritef(reportQueue, "run-terminate: %lld %d", (long long)getpid(), result);
     
     msgQueueClose(&taskQueue);
     msgQueueClose(&reportQueue);

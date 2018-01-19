@@ -168,6 +168,7 @@ ListData ListPopFront( List* l );
 */
 ListData ListPopBack( List* l );
 
+
 /**
 * Clears the entire List.
 *
@@ -544,6 +545,34 @@ static inline void ListDestroyDeep(List* l, ListModifierFn deallocator) {
     deallocator(ListGetValue(iter));
   }
   ListDestroy(l);
+}
+
+/**
+ * Get value of the element at the position @p position.
+ * If the position does not exist in the list then NULL is returned.
+ *
+ * As the list is dynamic, it does not allow random acceess.
+ * That's why this function is linear due to list size.
+ *
+ * NOTICE: This operation's time complexity is O(n).
+ *
+ * @param[in] l        : List*
+ * @param[in] position : const int
+ * @return ListData
+ */
+static inline ListData ListGetValueAt(List* l, const int position) {
+    if(l == NULL) return NULL;
+    if(position < 0) return NULL;
+    
+    int pos_index = 0;
+    LOOP_LIST(l, i) {
+         ListData element = ListGetValue(i);
+         if(position == pos_index) {
+             return element;
+         }
+         ++pos_index;
+    }
+    return NULL;
 }
 
 #include "dynamic_lists.c"

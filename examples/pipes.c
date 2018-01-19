@@ -3,6 +3,35 @@
 #include "fork.h"
 #include "syserr.h"
 
+/*include "hashmap.h"
+
+typedef struct custom_type custom_type;
+struct custom_type {
+    int x;
+    int y;
+};
+
+int main(void) {
+    HashMap hm = HashMapNew(HashMapIntCmp);
+    
+    custom_type val;
+    val.x = 21;
+    val.y = 37;
+    
+    HashMapSetV(hm, int, custom_type, 3, val);
+    
+    val.x = 1;
+    val.y = 2;
+    HashMapSetV(hm, int, custom_type, 4, val);
+    
+    LOOP_HASHMAP(&hm, i) {
+        custom_type* ptr = (custom_type*) HashMapGetValue(i);
+        printf("custom_type x=%d, y=%d\n", ptr->x, ptr->y);
+    }
+    
+    HashMapDestroyV(hm, int, custom_type);
+}*/
+
 
 int main(void) {
     
@@ -36,3 +65,4 @@ int main(void) {
     
     return 0;
 }
+
