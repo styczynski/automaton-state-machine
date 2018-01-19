@@ -14,7 +14,7 @@
 #include "syserr.h"
 #include "syslog.h"
 
-#define MAX_MSG_QUEUE_NAME_SIZE 30
+#define MAX_MSG_QUEUE_NAME_SIZE 50
 
 
 typedef struct MsgQueue MsgQueue;
@@ -27,7 +27,7 @@ struct MsgQueue {
     int buff_size;
 };
 
-MsgQueue msgQueueOpen(const char* q_name, const int msg_size, const int max_msg) {
+MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_msg, const int is_blocking) {
     
     MsgQueue msgq;
     
@@ -57,7 +57,11 @@ MsgQueue msgQueueOpen(const char* q_name, const int msg_size, const int max_msg)
     }
     
     //printf("mq_open(%s)\n", msgq.name);
-    msgq.desc = mq_open(msgq.name, O_RDWR | O_CREAT, 0664, &msgq.mq_a);
+    if(is_blocking) {
+        msgq.desc = mq_open(msgq.name, O_RDWR | O_CREAT, 0664, &msgq.mq_a);
+    } else {
+        msgq.desc = mq_open(msgq.name, O_RDWR | O_CREAT | O_NONBLOCK, 0664, &msgq.mq_a);
+    }
     if(msgq.desc == (mqd_t) -1) {
         syserr("Error in mq_open");
         free(msgq.name);
@@ -81,6 +85,14 @@ MsgQueue msgQueueOpen(const char* q_name, const int msg_size, const int max_msg)
     msgq.buff[0] = '\0';
     
     return msgq;
+}
+
+MsgQueue msgQueueOpen(const char* q_name, const int msg_size, const int max_msg) {
+    return msgQueueOpenEx(q_name, msg_size, max_msg, 1);
+}
+
+MsgQueue msgQueueOpenNonBlocking(const char* q_name, const int msg_size, const int max_msg) {
+    return msgQueueOpenEx(q_name, msg_size, max_msg, 0);
 }
 
 char* msgQueueRead(MsgQueue msgq) {

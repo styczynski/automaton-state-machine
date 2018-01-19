@@ -80,12 +80,15 @@ int strGetline(char **lineptr, size_t *n, char** str_stream) {
     unsigned int len;
     if(lineptr == NULL || n == NULL) {
        errno = EINVAL;
+       (*lineptr)[0] = '\0';
        return -1;
     }
     if(str_stream == NULL) {
+        (*lineptr)[0] = '\0';
         return -1;
     }
     if(*str_stream == NULL) {
+        (*lineptr)[0] = '\0';
         return -1;
     }
     char* fgetsptr = strGets(line, 256, str_stream);

@@ -76,8 +76,9 @@ void ArrayListResizeFill(ArrayList* l, const int min_size) {
 */
 void ArrayListResizeFillWith(ArrayList* l, const int min_size, ArrayListModifierFn ctor) {
   if(l->size >= min_size) return;
+  int oldSize = l->size;
   ArrayListResize(l, min_size + 30);
-  for(int i=l->size;i<min_size;++i) {
+  for(int i=oldSize;i<min_size;++i) {
       (l->data)[i] = ctor(NULL);
   }
   l->size = min_size;

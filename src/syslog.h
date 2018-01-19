@@ -7,7 +7,7 @@
 #include "syserr.h"
 
 #ifndef SYS_LOG_DEFAULT_FILE
-#define SYS_LOG_DEFAULT_FILE stdout
+#define SYS_LOG_DEFAULT_FILE stderr
 #endif // SYS_LOG_DEFAULT_FILE
 
 #ifndef SYS_LOG_DEFAULT_FLUSH
