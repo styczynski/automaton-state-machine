@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/param.h>
+#include "msg_pipe.h"
 #include "syserr.h"
 
 int processFork(pid_t* pid) {
@@ -58,12 +59,24 @@ int processExec(pid_t* pid, const char* path, const char* arg, ...) {
     return 0;
 }
 
+int processWaitForAll() {
+    int terminated_count = 0;
+    while(wait(0) != -1) {
+        ++terminated_count;
+    }
+    return terminated_count;
+}
+
 int processWait() {
     if(wait(0) == -1) {
         syserr("Error in wait\n");
         return -1;
     }
     return 1;
+}
+
+void processExit(int status) {
+    _exit(status);
 }
 
 #endif // __FORK_H__

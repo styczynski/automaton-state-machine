@@ -111,6 +111,21 @@ int msgPipeCloseWrite(MsgPipe* msgp) {
     return 1;
 }
 
+int msgPipeAbandon(MsgPipe* msgp) {
+    if(msgp == NULL) return -1;
+    
+    if(!msgp->good) {
+        return -1;
+    }
+    
+    free(msgp->buff);
+    msgp->buff = NULL;
+    msgp->buff_size = 0;
+    msgp->good = 0;
+    
+    return 1;
+}
+
 int msgPipeClose(MsgPipe* msgp) {
     if(msgp == NULL) return -1;
     
@@ -121,18 +136,13 @@ int msgPipeClose(MsgPipe* msgp) {
     msgPipeCloseRead(msgp);
     msgPipeCloseWrite(msgp);
     
-    free(msgp->buff);
-    msgp->buff = NULL;
-    msgp->buff_size = 0;
-    msgp->good = 0;
-    
-    return 1;
+    return msgPipeAbandon(msgp);
 }
 
 char* msgPipeRead(MsgPipe msgp) {
     if(!msgp.good || !msgp.opened_read) return NULL;
     
-    log_debug(DEBUG_MSG_PIPE, MSGPIP, "Read from desc %d into buff of size = %d", msgp.pipe_desc[0], msgp.buff_size);
+    log_debug(DEBUG_MSG_PIPE, MSGPIP, "Read from pipe: %d%d", msgp.pipe_desc[0], msgp.pipe_desc[1]);
     
     int read_len = 0;
     if((read_len = read(msgp.pipe_desc[0], msgp.buff, msgp.buff_size - 1)) == -1) {
@@ -140,6 +150,8 @@ char* msgPipeRead(MsgPipe msgp) {
         return NULL;
     }
     msgp.buff[read_len < msgp.buff_size - 1? read_len : msgp.buff_size - 1] = '\0';
+    
+    log_debug(DEBUG_MSG_PIPE, MSGPIP, "Read from pipe: %d%d {%s}", msgp.pipe_desc[0], msgp.pipe_desc[1], msgp.buff);
     
     if(read_len == 0) {
         fatal("Unexpected end-of-file\n");
@@ -167,7 +179,7 @@ int msgPipeWrite(MsgPipe msgp, char* message) {
     if(!msgp.good || !msgp.opened_write) return -1;
     
     const int message_len = strlen(message);
-    log_debug(DEBUG_MSG_PIPE, MSGPIP, "Write into desc %d message of size = %d", msgp.pipe_desc[1], message_len);
+    log_debug(DEBUG_MSG_PIPE, MSGPIP, "Write into pipe: %d%d {%s}", msgp.pipe_desc[0], msgp.pipe_desc[1], message);
     
     if(write(msgp.pipe_desc[1], message, message_len) != message_len) {
         syserr("Error in write\n");

@@ -18,6 +18,12 @@ typedef TransitionGraphImpl* TransitionGraph;
 struct TransitionGraphImpl {
     int graph[MAX_Q][MAX_A][MAX_Q];
     int size[MAX_Q][MAX_A];
+    int acceptingStates[MAX_A];
+    int q0;
+    int A;
+    int Q;
+    int U;
+    int F;
 };
 
 void printTransitionGraph(const TransitionGraph tg) {
@@ -65,13 +71,11 @@ char* loadTransitionGraphDesc(FILE* input) {
     return buff;
 }
 
-void loadTransitionGraph(FILE* input, TransitionGraph tg) {
+void loadTransitionGraph(char** input, TransitionGraph tg) {
     
     if(input == NULL) return;
     
-    int N, A, Q, U, F;
-    int AcceptingStates[100];
-    int q0;
+    int N;
     int q;
     char a;
     int pos;
@@ -80,20 +84,21 @@ void loadTransitionGraph(FILE* input, TransitionGraph tg) {
     char* line_buf = (char*) malloc(LINE_BUF_SIZE * sizeof(char));
     size_t line_buf_size = LINE_BUF_SIZE;
     
-    getline(&line_buf, &line_buf_size, input);
-    sscanf(line_buf, "%d %d %d %d %d", &N, &A, &Q, &U, &F);
+    strGetline(&line_buf, &line_buf_size, input);
+    sscanf(line_buf, "%d %d %d %d %d", &N, &(tg->A), &(tg->Q), &(tg->U), &(tg->F));
     
-    getline(&line_buf, &line_buf_size, input);
-    sscanf(line_buf, "%d", &q0);
+    strGetline(&line_buf, &line_buf_size, input);
+    sscanf(line_buf, "%d", &(tg->q0));
     
-    getline(&line_buf, &line_buf_size, input);
+    strGetline(&line_buf, &line_buf_size, input);
     pos = 0;
-    for(int i=0;i<F;++i) {
-        sscanf(line_buf+pos, "%d%n", &AcceptingStates[i], &npos);
+    for(int i=0;i<tg->F;++i) {
+        sscanf(line_buf+pos, "%d%n", &q, &npos);
+        tg->acceptingStates[q] = 1;
         pos += npos;
     }
 
-    while(getline(&line_buf, &line_buf_size, input) > 0) {
+    while(strGetline(&line_buf, &line_buf_size, input) > 0) {
        sscanf(line_buf, "%d %c%n", &q, &a, &pos);
        if(*((char*)(line_buf+pos)) == '\0') break;
        while(sscanf(line_buf+pos, "%d%n", &r, &npos)) {

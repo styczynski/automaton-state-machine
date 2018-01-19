@@ -87,6 +87,10 @@ char* msgQueueRead(MsgQueue msgq) {
     if(msgq.name == NULL) return NULL;
     
     int ret = mq_receive(msgq.desc, msgq.buff, msgq.buff_size, NULL);
+    if(ret >= 0) {
+        msgq.buff[ret] = '\0';
+    }
+    
     log_debug(DEBUG_MSG_QUEUE, MSGQUE, "Read from msg_queue named %s message into buffer of size = %d: {%s}", msgq.name, msgq.buff_size, msgq.buff);
     
     if(ret < 0) {
@@ -146,6 +150,18 @@ char* msgQueueSeek(MsgQueue msgq) {
     return ret;
 }
 
+int msgQueueAbandon(MsgQueue* msgq) {
+    if(msgq->name == NULL) return -1;
+    
+    free(msgq->name);
+    free(msgq->buff);
+    
+    msgq->name = NULL;
+    msgq->buff = NULL;
+    
+    return 1;
+}
+
 int msgQueueCloseEx(MsgQueue* msgq, int unlink) {
     if(msgq->name == NULL) return -1;
     
@@ -161,11 +177,7 @@ int msgQueueCloseEx(MsgQueue* msgq, int unlink) {
         }
     }
     
-    free(msgq->name);
-    free(msgq->buff);
-    
-    msgq->name = NULL;
-    msgq->buff = NULL;
+    msgQueueAbandon(msgq);
     
     return 1;
 }
