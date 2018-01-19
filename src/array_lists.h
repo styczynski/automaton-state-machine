@@ -26,8 +26,6 @@
 #ifndef __STY_COMMON_ARRAY_LISTS_H__
 #define __STY_COMMON_ARRAY_LISTS_H__
 
-#include "utils.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>

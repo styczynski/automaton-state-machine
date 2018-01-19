@@ -12,8 +12,6 @@
 *  @copyright MIT
 *  @date 2017-05-13
 */
-#include "utils.h"
-
 #include <stdio.h>
 #include "memalloc.h"
 #include "generics.h"

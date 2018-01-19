@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include "memalloc.h"
 #include "syslog.h"
 
 int getline(char **lineptr, size_t *n, FILE *stream) {
@@ -32,7 +33,7 @@ int getline(char **lineptr, size_t *n, FILE *stream) {
     }
     len = strlen(line);
     if((len+1) < 256) {
-        ptr = (char*)realloc(*lineptr, 256);
+        ptr = (char*) MREALLOCATE_BLOCKS(1, 256, *lineptr);
         if (ptr == NULL) {
             return -1;
         }
@@ -101,7 +102,7 @@ int strGetline(char **lineptr, size_t *n, char** str_stream) {
     }
     len = strlen(line);
     if((len+1) < 256) {
-        ptr = (char*)realloc(*lineptr, 256);
+        ptr = (char*) MREALLOCATE_BLOCKS(1, 256, *lineptr);
         if (ptr == NULL) {
             return -1;
         }

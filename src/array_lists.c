@@ -22,8 +22,6 @@
 *  @copyright MIT
 *  @date 2017-05-13
 */
-#include "utils.h"
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

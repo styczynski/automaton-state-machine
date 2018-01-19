@@ -8,12 +8,11 @@
 #ifndef __STY_COMMON_MEMALLOC_H__
 #define __STY_COMMON_MEMALLOC_H__
 
-#include "utils.h"
-
 #include <stdlib.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
+#include "syslog.h"
 
 
 /**
@@ -71,6 +70,22 @@
 ( (STRUCT*) ReallocateMemoryBlockArray((PTR), (LEN), sizeof(STRUCT)) )
 
 /**
+* @def MREALLOCATE_BLOCKS(BLOCK_SIZE, LEN)
+*
+* Macro giving value of pointer to the reallocated array of size @p LEN
+* of blocks of size @p SIZE bytes
+*
+* NOTICE: Assertion checking is done for allocation errors.
+*
+* @param[in] BLOCK_SIZE : Length of single block in bytes
+* @param[in] LEN        : Length of array to be allocated
+* @param[in] PTR    : Pointer to currently allocated structure array
+*/
+#define MREALLOCATE_BLOCKS(BLOCK_SIZE, LEN, PTR) \
+( (void*) ReallocateMemoryBlockArray((PTR), (LEN), (BLOCK_SIZE)) )
+
+
+/**
 * @def MALLOCATE_BLOCKS(SIZE, LEN)
 *
 * Macro giving value of pointer to the allocated array of size @p LEN
@@ -96,7 +111,9 @@ static inline void* AllocateMemoryBlock(int size) {
   assert(size > 0);
 
   void* data = malloc(size);
-  assert(data != NULL);
+  if(data == NULL) {
+      syserr("AllocateMemoryBlock() failed due to malloc failure");
+  }
 
   return data;
 }
@@ -112,10 +129,16 @@ static inline void* AllocateMemoryBlock(int size) {
 */
 static inline void* ReallocateMemoryBlock(void *p, int size) {
   if(p == NULL) return AllocateMemoryBlock(size);
-  assert(size > 0);
-
+  
+  if(size <= 0) {
+      syserrv("ReallocateMemoryBlock() failed because size=%d < 0", size);
+  }
+  
   void* data = realloc(p, size);
-
+  if(data == NULL) {
+      syserr("ReallocateMemoryBlock() failed due to realloc failure");
+  }
+  
   return data;
 }
 
@@ -129,11 +152,19 @@ static inline void* ReallocateMemoryBlock(void *p, int size) {
 * @return void* to allocated memory array
 */
 static inline void* AllocateMemoryBlockArray(int count, int size) {
-  assert(count > 0);
-  assert(size > 0);
+  
+  if(size <= 0) {
+      syserrv("AllocateMemoryBlockArray() failed because size=%d < 0", size);
+  }
+  
+  if(count <= 0) {
+      syserrv("AllocateMemoryBlockArray() failed because count=%d < 0", count);
+  }
 
   void* data = calloc(count, size);
-  assert(data != NULL);
+  if(data == NULL) {
+      syserr("AllocateMemoryBlock() failed due to calloc failure");
+  }
 
   return data;
 }
@@ -150,12 +181,18 @@ static inline void* AllocateMemoryBlockArray(int count, int size) {
 * @return void* to allocated memory array
 */
 static inline void* ReallocateMemoryBlockArray(void* p, int count, int size) {
-  //if(p == NULL) return AllocateMemoryBlockArray(count, size);
-  assert(count > 0);
-  assert(size > 0);
+  if(size <= 0) {
+      syserrv("ReallocateMemoryBlockArray() failed because size=%d < 0", size);
+  }
+  
+  if(count <= 0) {
+      syserrv("ReallocateMemoryBlockArray() failed because count=%d < 0", count);
+  }
   
   void* data = realloc(p, count * size);
-  assert(data != NULL);
+  if(data == NULL) {
+      syserr("ReallocateMemoryBlockArray() failed due to realloc failure");
+  }
 
   return data;
 }

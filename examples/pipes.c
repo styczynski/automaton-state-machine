@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "msg_pipe.h"
 #include "fork.h"
-#include "syserr.h"
+#include "syslog.h"
 
 /*include "hashmap.h"
 

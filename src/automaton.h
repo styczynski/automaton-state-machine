@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
-#include "syserr.h"
 
 typedef struct TransitionGraphImpl TransitionGraphImpl;
 typedef TransitionGraphImpl* TransitionGraph;

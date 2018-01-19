@@ -7,13 +7,13 @@
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/param.h>
+#include <sys/wait.h>
 #include "msg_pipe.h"
-#include "syserr.h"
 
 int processFork(pid_t* pid) {
     switch (*pid = fork()) {
         case -1:
-            syserr("Error in fork\n");
+            syserr("processFork failed due to fork() error");
             return -1;
         case 0:
             //printf("I am a child and my pid is %d\n", getpid());    
@@ -50,6 +50,7 @@ int processExec(pid_t* pid, const char* path, const char* arg, ...) {
         va_end(ap);
 
         if(execve(path, argv, NULL) == -1) {
+            syserr("processExec failed due to execve(%s) error", path);
             return -1;
         }
         
@@ -69,7 +70,7 @@ int processWaitForAll() {
 
 int processWait() {
     if(wait(0) == -1) {
-        syserr("Error in wait\n");
+        //syserr("processWait failed due to wait(0) error");
         return -1;
     }
     return 1;

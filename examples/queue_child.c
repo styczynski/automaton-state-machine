@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "msg_queue.h"
 #include "msg_pipe.h"
-#include "syserr.h"
+#include "syslog.h"
 
 int main(void) {
     

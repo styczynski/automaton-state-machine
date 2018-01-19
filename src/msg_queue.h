@@ -5,13 +5,12 @@
 #define DEBUG_MSG_QUEUE 0
 #endif // DEBUG_MSG_QUEUE
 
-
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <mqueue.h>
 #include <stdarg.h>
-#include "syserr.h"
+#include "memalloc.h"
 #include "syslog.h"
 
 #define MAX_MSG_QUEUE_NAME_SIZE 50
@@ -33,20 +32,20 @@ MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_ms
     MsgQueue msgq;
     
     if(q_name == NULL) {
-        syserr("Error queue name is NULL");
+        syserrv("msgQueueOpenEx failed due to NULLed queue name");
         msgq.name = NULL;
         msgq.buff = NULL;
         msgq.buff_size = 0;
         return msgq;
     } else if(strlen(q_name) > MAX_MSG_QUEUE_NAME_SIZE) {
-        syserr("Error queue name exceeds MAX_MSG_QUEUE_NAME_SIZE");
+        syserrv("msgQueueOpenEx failed due to name size exceeding MAX_MSG_QUEUE_NAME_SIZE length");
         msgq.name = NULL;
         msgq.buff = NULL;
         msgq.buff_size = 0;
         return msgq;
     }
     
-    msgq.name = (char*) malloc(sizeof(char) * MAX_MSG_QUEUE_NAME_SIZE);
+    msgq.name = MALLOCATE_ARRAY(char, MAX_MSG_QUEUE_NAME_SIZE);
     msgq.name[0] = '\0';
     strcpy(msgq.name, q_name);
     
@@ -65,8 +64,9 @@ MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_ms
         msgq.is_blocking = 0;
         msgq.desc = mq_open(msgq.name, O_RDWR | O_CREAT | O_NONBLOCK, 0664, &msgq.mq_a);
     }
+    
     if(msgq.desc == (mqd_t) -1) {
-        syserr("Error in mq_open");
+        syserr("msgQueueOpenEx failed due to mq_open(%s) error", msgq.name);
         free(msgq.name);
         msgq.name = NULL;
         msgq.buff = NULL;
@@ -75,7 +75,7 @@ MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_ms
     }
 
     if (mq_getattr(msgq.desc, &msgq.mq_a)) {
-        syserr("Error in getattr");
+        syserr("msgQueueOpenEx failed due to mq_getattr(desc=%d) error", msgq.desc);
         free(msgq.name);
         msgq.name = NULL;
         msgq.buff = NULL;
@@ -84,7 +84,7 @@ MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_ms
     }
     
     msgq.buff_size = msgq.mq_a.mq_msgsize + 1;
-    msgq.buff = (char*) malloc(msgq.buff_size*sizeof(char));
+    msgq.buff = MALLOCATE_ARRAY(char, msgq.buff_size);
     msgq.buff[0] = '\0';
     
     return msgq;
@@ -113,7 +113,7 @@ char* msgQueueRead(MsgQueue msgq) {
             msgq.buff[0] = '\0';
             return NULL;
         }
-        syserr("Error in mq_receive");
+        syserr("msgQueueRead failed due to mq_receive(desc=%d, *buffer=%p, len=%d) error", msgq.desc, msgq.buff, msgq.buff_size);
         return NULL;
     }
     
@@ -144,7 +144,7 @@ int msgQueueWrite(MsgQueue msgq, char* message) {
         if(errno == EAGAIN && !msgq.is_blocking) {
             return 1;
         }
-        syserr("Error in mq_send");
+        syserr("msgQueueWrite failed due to mq_send(desc=%d, len=%d) error", msgq.desc, strlen(message)+1);
         return -1;
     }
     return ret;
@@ -188,13 +188,13 @@ int msgQueueCloseEx(MsgQueue* msgq, int unlink) {
     if(msgq->name == NULL) return -1;
     
     if(mq_close(msgq->desc)) {
-        syserr("Error in close:");
+        syserr("msgQueueCloseEx failed due to mq_close(desc=%d) error", msgq->desc);
         return -1;
     }
     
     if(unlink) {
         if(mq_unlink(msgq->name)) {
-            syserr("Error in unlink:");
+            syserr("msgQueueCloseEx failed due to mq_unlink(%s) error", msgq->name);
             return -1;
         }
     }

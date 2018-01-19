@@ -1,8 +1,6 @@
 #ifndef __HASHMAP_H__
 #define __HASHMAP_H__
 
-#include "utils.h"
-
 #include "memalloc.h"
 #include "array_lists.h"
 #include "dynamic_lists.h"

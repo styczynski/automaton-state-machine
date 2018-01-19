@@ -5,9 +5,7 @@
 #include "msg_queue.h"
 #include "msg_pipe.h"
 #include "fork.h"
-#include "syserr.h"
 #include "syslog.h"
-#include "serialize.h"
 #include "hashmap.h"
 
 typedef struct RunSlot RunSlot;
@@ -86,7 +84,7 @@ int main(void) {
            ts.pid = pid;
            ts.testerInputQueue = msgQueueOpen(buffer, 50, 10);
            
-           strcpy(&(ts.queueName), buffer);
+           strcpy((char*) &(ts.queueName), buffer);
            HashMapSetV(&testerSlots, pid_t, TesterSlot, pid, ts);
            
         } else if(sscanf(msg, "run-terminate: %lld %d", &buffer_pid, &buffer_result)) {

@@ -4,7 +4,6 @@
 #include "msg_queue.h"
 #include "msg_pipe.h"
 #include "fork.h"
-#include "syserr.h"
 #include "syslog.h"
 
 
@@ -14,7 +13,7 @@ int acceptSync_rec(TransitionGraph tg, char* word, int word_len, int current_sta
         return tg->acceptingStates[current_state];
     }
     
-    const char current_letter = word[depth];
+    const int current_letter = (int)word[depth];
     const int branch_count = tg->size[current_state][current_letter];
     
     if(current_state >= tg->U) {
@@ -41,7 +40,7 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
         return tg->acceptingStates[current_state];
     }
     
-    const char current_letter = word[depth];
+    const int current_letter = (int)word[depth];
     const int branch_count = tg->size[current_state][current_letter];
     
     MsgPipeID acceptAsyncDataPipeID[branch_count];

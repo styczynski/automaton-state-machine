@@ -8,7 +8,6 @@
 #include "array_lists.h"
 #include "memalloc.h"
 #include "syslog.h"
-#include "syserr.h"
 
 int main(void) {
     
