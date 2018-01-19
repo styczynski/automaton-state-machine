@@ -114,7 +114,7 @@ static inline int HashMapCalcHash(const int key_size, HashMapKey key) {
     if(hash<0) hash*=-1;
     hash = 1000;
     
-    log_info(HASHMAP, "hash is %d", hash);
+    //log_info(HASHMAP, "hash is %d", hash);
     
     return hash;
 }

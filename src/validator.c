@@ -114,6 +114,7 @@ int main(void) {
                 if(ts == NULL) {
                     log_err(SERVER, "Missing tester slot info for run of pid=%d (tester pid=%d)", rs->pid, ts->pid);
                 } else {
+                    log_ok(SERVER, "Sent answer to the tester with pid=%d", ts->pid);
                     msgQueueWritef(ts->testerInputQueue, "%d answer: %d", rs->loc_id, buffer_result);
                 }
                 

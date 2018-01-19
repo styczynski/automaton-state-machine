@@ -25,6 +25,7 @@ struct MsgQueue {
     char* name;
     char* buff;
     int buff_size;
+    int is_blocking;
 };
 
 MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_msg, const int is_blocking) {
@@ -58,8 +59,10 @@ MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_ms
     
     //printf("mq_open(%s)\n", msgq.name);
     if(is_blocking) {
+        msgq.is_blocking = 1;
         msgq.desc = mq_open(msgq.name, O_RDWR | O_CREAT, 0664, &msgq.mq_a);
     } else {
+        msgq.is_blocking = 0;
         msgq.desc = mq_open(msgq.name, O_RDWR | O_CREAT | O_NONBLOCK, 0664, &msgq.mq_a);
     }
     if(msgq.desc == (mqd_t) -1) {
@@ -106,6 +109,10 @@ char* msgQueueRead(MsgQueue msgq) {
     log_debug(DEBUG_MSG_QUEUE, MSGQUE, "Read from msg_queue named %s message into buffer of size = %d: {%s}", msgq.name, msgq.buff_size, msgq.buff);
     
     if(ret < 0) {
+        if(errno == EAGAIN && !msgq.is_blocking) {
+            msgq.buff[0] = '\0';
+            return NULL;
+        }
         syserr("Error in mq_receive");
         return NULL;
     }
@@ -134,6 +141,9 @@ int msgQueueWrite(MsgQueue msgq, char* message) {
     
     int ret = mq_send(msgq.desc, message, strlen(message) + 1, 1);
     if(ret) {
+        if(errno == EAGAIN && !msgq.is_blocking) {
+            return 1;
+        }
         syserr("Error in mq_send");
         return -1;
     }
