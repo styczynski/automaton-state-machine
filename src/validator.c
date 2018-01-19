@@ -124,6 +124,12 @@ int main(void) {
             
             if(activeTasksCount <= 0 && shouldTerminate) {
                 log_warn(SERVER, "All current jobs were finished so execute terminate request.");
+                
+                LOOP_HASHMAP(&testerSlots, i) {
+                    TesterSlot* ts = (TesterSlot*) HashMapGetValue(i);
+                    msgQueueWritef(ts->testerInputQueue, "exit");
+                }
+                
                 break;
             }
             

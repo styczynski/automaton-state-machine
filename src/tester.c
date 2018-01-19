@@ -81,6 +81,9 @@ int main(void) {
                     } else {
                        log_err(TESTER, "Invalid locid in response from server: [%s]\n", msg); 
                     }
+                } else if(strcmp(msg, "exit")) {
+                    log_warn(TESTER, "Got exit request from server!");
+                    break;
                 } else {
                     log_err(TESTER, "Invalid response from server: [%s]\n", msg);
                 }
