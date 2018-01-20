@@ -39,7 +39,7 @@ static void ListDestroyRecLeft(ListNode* l) {
   if(l->left != NULL) {
     ListDestroyRecLeft(l->left);
   }
-  free(l);
+  FREE(l);
 }
 
 /*
@@ -98,7 +98,7 @@ ListData ListPopFront(List* l) {
     } else {
       (l->end) = NULL;
     }
-    free(l->begin);
+    FREE(l->begin);
     (l->begin) = new_begin;
     return val;
   }
@@ -122,7 +122,7 @@ ListData ListPopBack(List* l) {
     } else {
       (l->begin) = NULL;
     }
-    free(l->end);
+    FREE(l->end);
     (l->end) = new_end;
     return val;
   }
@@ -149,12 +149,12 @@ void ListDestroy(List* l) {
   ListNode* it = l->begin;
   while(it != NULL) {
     ListNode* next = it->right;
-    free(it);
+    FREE(it);
     it = next;
   }
   l->begin = NULL;
   l->end = NULL;
-  //free(l);
+  //FREE(l);
 }
 
 /*
@@ -340,7 +340,7 @@ void ListDetachElement( List* l, ListNode* node ) {
   } else {
     l->end = left_neighbour;
   }
-  free(node);
+  FREE(node);
 }
 
 /*

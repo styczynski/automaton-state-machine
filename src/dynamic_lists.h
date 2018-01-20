@@ -93,7 +93,7 @@ typedef ListData (*ListModifierFn)(ListData);
 
 /**
 * Create new List
-* All Lists must be then freed with Lists.free(List).
+* All Lists must be then freed with ListDestroy(List).
 *
 * @return List
 */

@@ -41,14 +41,15 @@
 #define log_err(LABEL, ...)  
 
 #if SYS_LOG_HANDLE_FATALS == 1
-#define fatal(LABEL, ...)     fatal_formated(0, #LABEL, stderr, __func__, __VA_ARGS__)
-#define log_fatal(LABEL, ...) fatal_formated(0, #LABEL, stderr, __func__, __VA_ARGS__)
-#define syserr(...)           fatal_formated(1, "SYSERR", stderr, __func__, __VA_ARGS__)
-#define syserrv(...)          fatal_formated(0, "SYSERR", stderr, __func__, __VA_ARGS__)
+#define fatal(LABEL, ...)     fatal_formated(0, 1, #LABEL, stderr, __func__, __VA_ARGS__)
+#define log_fatal(LABEL, ...) fatal_formated(0, 1, #LABEL, stderr, __func__, __VA_ARGS__)
+#define syserr(...)           fatal_formated(1, 0, "SYSERR", stderr, __func__, __VA_ARGS__)
+#define syserrv(...)          fatal_formated(0, 0, "SYSERR", stderr, __func__, __VA_ARGS__)
 #else // SYS_LOG_HANDLE_FATALS == 1
 #define log_fatal(LABEL, ...) 
 #define fatal(LABEL, ...)     
-#define syserr(...)           
+#define syserr(...)           fatal_formated(1, 0, "SYSERR", stderr, __func__, __VA_ARGS__)
+#define syserrv(...)          fatal_formated(0, 0, "SYSERR", stderr, __func__, __VA_ARGS__)
 #endif // SYS_LOG_HANDLE_FATALS == 1
 
 #define log_formated(...)     
@@ -70,8 +71,8 @@ void log_formated(int loglevel, const int print_errno, const char* label, FILE* 
 #define log_err(LABEL, ...)   log_formated(4, 0, #LABEL, NULL, __func__, __VA_ARGS__)
 #define log_fatal(LABEL, ...) log_formated(5, 0, #LABEL, NULL, __func__, __VA_ARGS__)
 #define fatal(LABEL, ...)     log_formated(5, 0, #LABEL, NULL, __func__, __VA_ARGS__)
-#define syserr(...)           log_formated(5, 1, "SYSERR", NULL, __func__, __VA_ARGS__)
-#define syserrv(...)          log_formated(5, 0, "SYSERR", NULL, __func__, __VA_ARGS__)
+#define syserr(...)           log_formated(4, 1, "SYSERR", NULL, __func__, __VA_ARGS__)
+#define syserrv(...)          log_formated(4, 0, "SYSERR", NULL, __func__, __VA_ARGS__)
 
 
 void log_formated(int loglevel, const int print_errno, const char* label, FILE* out, const char* function_name, const char* format, ...) {
@@ -113,7 +114,7 @@ void log_formated(int loglevel, const int print_errno, const char* label, FILE* 
         fprintf(out, " %-5d %-10s ", getpid(), function_name);
     }
     vfprintf(out, format, args);
-    fprintf(out, "\n");
+    
     va_end(args);
     
     if(print_errno) {
@@ -121,9 +122,12 @@ void log_formated(int loglevel, const int print_errno, const char* label, FILE* 
     }
     
     fprintf(out, "\033[0m");
+    fprintf(out, "\n");
+    
     if(SYS_LOG_DEFAULT_FLUSH) {
         fflush(out);
     }
+    
     
     if(loglevel > 4) {
         // Log level: Fatal
@@ -136,7 +140,7 @@ void log_formated(int loglevel, const int print_errno, const char* label, FILE* 
 #endif // NO_LOG
 
 
-void fatal_formated(const int print_errno, const char* label, FILE* out, const char* function_name, const char* format, ...) {
+void fatal_formated(const int print_errno, const int if_exit, const char* label, FILE* out, const char* function_name, const char* format, ...) {
     va_list args;
     va_start(args, format);
     
@@ -169,7 +173,9 @@ void fatal_formated(const int print_errno, const char* label, FILE* out, const c
     fprintf(out, "\033[0m");
     fflush(out);
     
-    exit(-1);
+    if(if_exit) {
+        exit(-1);
+    }
 }
 
 #endif // __SYS_LOG_H__

@@ -13,8 +13,8 @@ set(CMAKE_VERBOSE_MAKEFILE OFF)
 
 # Compilation flags
 set(CMAKE_C_FLAGS "-std=c11 -Wall -Wextra -pedantic")
-set(CMAKE_C_FLAGS_RELEASE "-O3 -DNO_LOG -fno-exceptions")
-set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG -O0")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -DNO_LOG -DENABLE_GC -fno-exceptions")
+set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG -DENABLE_GC -O0")
 
 # Inclusion directories
 include_directories(./src/)

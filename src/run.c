@@ -6,8 +6,10 @@
 #include "fork.h"
 #include "syslog.h"
 
+#include "gcinit.h"
 
 int acceptSync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth) {
+    
     
     if(depth >= word_len) {
         return tg->acceptingStates[current_state];
@@ -40,6 +42,8 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
         return tg->acceptingStates[current_state];
     }
     
+    log_warn(RUN, " > word %s at char # %d = %c, state = %d", word, depth, word[depth], current_state);
+    
     const int current_letter = (int)word[depth];
     const int branch_count = tg->size[current_state][current_letter];
     
@@ -47,12 +51,19 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
     MsgPipe acceptAsyncDataPipe[branch_count];
     pid_t acceptAsyncPid[branch_count];
     
+    _trigForkErr_ = 1;
+    
     if(current_state >= tg->U) {
         // Existential state
         for(int i=0;i<branch_count;++i) {
             
             acceptAsyncDataPipeID[i] = msgPipeCreate(5);
-            if(processFork(&acceptAsyncPid[i])) {
+            int status = processFork(&acceptAsyncPid[i]);
+            
+            if(status == -1) {
+                log_err(RUN, "Failed to fork subprocess");
+                exit(-1);
+            } else if(status == 1) {
                 
                 MsgPipe parentPipe = msgPipeOpen(acceptAsyncDataPipeID[i]);
                 
@@ -65,9 +76,14 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
                 }
                 
                 processExit(0);
-            } else {
+            } else if(status == 0) {
                 acceptAsyncDataPipe[i] = msgPipeOpen(acceptAsyncDataPipeID[i]);
             }
+        }
+        
+        if( processWaitForAll() == -1 ) {
+            log_err(RUN, "Child exited abnormally, so terminate.");
+            exit(-1);
         }
         
         for(int i=0;i<branch_count;++i) {
@@ -76,7 +92,6 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
                 for(int j=0;j<branch_count;++j) {
                     msgPipeClose(&acceptAsyncDataPipe[j]);
                 }
-                processWaitForAll();
                 return 1;
             }
         }
@@ -84,7 +99,7 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
         for(int j=0;j<branch_count;++j) {
             msgPipeClose(&acceptAsyncDataPipe[j]);
         }
-        processWaitForAll();
+        
         return 0;
     }
     
@@ -92,7 +107,12 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
     for(int i=0;i<branch_count;++i) {
         
         acceptAsyncDataPipeID[i] = msgPipeCreate(5);
-        if(processFork(&acceptAsyncPid[i])) {
+        int status = processFork(&acceptAsyncPid[i]);
+        
+        if(status == -1) {
+            log_err(RUN, "Failed to fork subprocess");
+            exit(-1);
+        } else if(status == 1) {
             
             MsgPipe parentPipe = msgPipeOpen(acceptAsyncDataPipeID[i]);
             
@@ -105,9 +125,15 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
             }
             
             processExit(0);
-        } else {
+        } else if(status == 0) {
             acceptAsyncDataPipe[i] = msgPipeOpen(acceptAsyncDataPipeID[i]);
         }
+        
+    }
+    
+    if( processWaitForAll() == -1 ) {
+        log_err(RUN, "Child exited abnormally, so terminate.");
+        exit(-1);
     }
     
     for(int i=0;i<branch_count;++i) {
@@ -116,7 +142,6 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
             for(int j=0;j<branch_count;++j) {
                 msgPipeClose(&acceptAsyncDataPipe[j]);
             }
-            processWaitForAll();
             return 0;
         }
     }
@@ -124,7 +149,7 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
     for(int j=0;j<branch_count;++j) {
         msgPipeClose(&acceptAsyncDataPipe[j]);
     }
-    processWaitForAll();
+
     return 1;
 }
 
@@ -138,6 +163,12 @@ int acceptAsync(TransitionGraph tg, char* word) {
 
 int main(int argc, char *argv[]) {
     
+    GC_SETUP();
+    GC_LOG_ON();
+    
+    if(argc < 2) {
+        fatal(RUN, "Wrong number of parameters should be at least 1.");
+    }
     
     MsgQueue reportQueue = msgQueueOpen("/FinAutomReportQueue", 50, 10);
     MsgQueue taskQueue = msgQueueOpen("/FinAutomTaskQueue", 30, 10);
@@ -173,7 +204,6 @@ int main(int argc, char *argv[]) {
     msgQueueClose(&taskQueue);
     msgQueueClose(&reportQueue);
     msgPipeClose(&graphDataPipe);
-    
     
     return 0;
 }

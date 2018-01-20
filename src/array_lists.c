@@ -131,7 +131,7 @@ void ArrayListDestroy(ArrayList* l) {
   if(l == NULL) return;
   if(l->alloc_size <= 0) return;
   if(l->data != NULL) {
-    free(l->data);
+    FREE(l->data);
   }
   l->data = NULL;
   l->size = 0;

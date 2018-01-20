@@ -123,7 +123,7 @@ int msgPipeAbandon(MsgPipe* msgp) {
         return -1;
     }
     
-    free(msgp->buff);
+    FREE(msgp->buff);
     msgp->buff = NULL;
     msgp->buff_size = 0;
     msgp->good = 0;

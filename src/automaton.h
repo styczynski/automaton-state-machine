@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
+#include "memalloc.h"
 
 typedef struct TransitionGraphImpl TransitionGraphImpl;
 typedef TransitionGraphImpl* TransitionGraph;
@@ -61,7 +62,7 @@ char* loadTransitionGraphDesc(FILE* input) {
     long fsize = ftell(input);
     
     fseek(input, 0, SEEK_SET);
-    char *buff = malloc(fsize + 1);
+    char *buff = MALLOCATE_BLOCKS(1, fsize + 1);
     
     fread(buff, fsize, 1, input);
     fclose(input);
@@ -80,7 +81,7 @@ void loadTransitionGraph(char** input, TransitionGraph tg) {
     int pos;
     int npos;
     int r;
-    char* line_buf = (char*) malloc(LINE_BUF_SIZE * sizeof(char));
+    char* line_buf = MALLOCATE_ARRAY(char, LINE_BUF_SIZE);
     size_t line_buf_size = LINE_BUF_SIZE;
     
     strGetline(&line_buf, &line_buf_size, input);
@@ -107,7 +108,7 @@ void loadTransitionGraph(char** input, TransitionGraph tg) {
        }
     }
     
-    free(line_buf);
+    FREE(line_buf);
     
 }
 

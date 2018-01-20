@@ -14,6 +14,20 @@
 #include <string.h>
 #include "syslog.h"
 
+#include "gc.h"
+
+/**
+* @def FREE(PTR)
+*
+* Frees value of the pointer.
+*
+* NOTICE: This macro gives more control over system resources than normal free's.
+*
+* @param[in] PTR : Pointer to be freed
+*/
+#define FREE(PTR) \
+( FreePtr(PTR) )
+
 
 /**
 * @def MALLOCATE(STRUCT)
@@ -108,9 +122,13 @@
 * @return void* to allocated memory block
 */
 static inline void* AllocateMemoryBlock(int size) {
-  assert(size > 0);
+  if(size < 0) {
+      syserrv("AllocateMemoryBlock() failed because size=%d < 0", size);
+  }
 
   void* data = malloc(size);
+  GC_ON_ALLOC(data);
+  
   if(data == NULL) {
       syserr("AllocateMemoryBlock() failed due to malloc failure");
   }
@@ -130,11 +148,14 @@ static inline void* AllocateMemoryBlock(int size) {
 static inline void* ReallocateMemoryBlock(void *p, int size) {
   if(p == NULL) return AllocateMemoryBlock(size);
   
-  if(size <= 0) {
+  if(size < 0) {
       syserrv("ReallocateMemoryBlock() failed because size=%d < 0", size);
   }
   
   void* data = realloc(p, size);
+  GC_ON_FREE(p);
+  GC_ON_ALLOC(data);
+  
   if(data == NULL) {
       syserr("ReallocateMemoryBlock() failed due to realloc failure");
   }
@@ -153,15 +174,17 @@ static inline void* ReallocateMemoryBlock(void *p, int size) {
 */
 static inline void* AllocateMemoryBlockArray(int count, int size) {
   
-  if(size <= 0) {
+  if(size < 0) {
       syserrv("AllocateMemoryBlockArray() failed because size=%d < 0", size);
   }
   
-  if(count <= 0) {
+  if(count < 0) {
       syserrv("AllocateMemoryBlockArray() failed because count=%d < 0", count);
   }
 
   void* data = calloc(count, size);
+  GC_ON_ALLOC(data);
+  
   if(data == NULL) {
       syserr("AllocateMemoryBlock() failed due to calloc failure");
   }
@@ -181,20 +204,39 @@ static inline void* AllocateMemoryBlockArray(int count, int size) {
 * @return void* to allocated memory array
 */
 static inline void* ReallocateMemoryBlockArray(void* p, int count, int size) {
-  if(size <= 0) {
+  if(size < 0) {
       syserrv("ReallocateMemoryBlockArray() failed because size=%d < 0", size);
   }
   
-  if(count <= 0) {
+  if(count < 0) {
       syserrv("ReallocateMemoryBlockArray() failed because count=%d < 0", count);
   }
   
   void* data = realloc(p, count * size);
+  GC_ON_FREE(p);
+  GC_ON_ALLOC(data);
+  
   if(data == NULL) {
       syserr("ReallocateMemoryBlockArray() failed due to realloc failure");
   }
 
   return data;
+}
+
+/**
+* Function that frees memory under given pointer.
+*
+* NOTICE: This function gives more control over system resources then normal free's.
+*
+* If p is NULL then nothing happens. 
+*
+* @param[in] p     : Pointer to freed memory
+*/
+static inline void FreePtr(void* p) {
+    if(p != NULL) {
+        GC_ON_FREE(p);
+        free(p);
+    }
 }
 
 

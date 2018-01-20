@@ -67,6 +67,11 @@ struct HashMapIterator {
     int index;
 };
 
+int HashMapVoidPtrCmp(void* a, void* b) {
+    //fprintf(stderr, "cmp %p, %p = %d\n", a, b, (a==b));
+    return a == b;
+}
+
 int HashMapIntCmp(void* a, void* b) {
     return *((int*)a) == *((int*)b);
 }
@@ -104,10 +109,14 @@ static inline HashMap HashMapNew(HashMapComparatorFn keyComparator) {
 static inline int HashMapCalcHash(const int key_size, HashMapKey key) {
     
     int hash = 0;
-    char* ptr = (char*) key;
-    for(int i=0;i<key_size;++i) {
-        hash += ptr[i] * HASH_MAP_FACT_P;
-        hash %= HASH_MAP_FACT_Q;
+    if(key_size > 0) {
+        char* ptr = (char*) key;
+        for(int i=0;i<key_size;++i) {
+            hash += ptr[i] * HASH_MAP_FACT_P;
+            hash %= HASH_MAP_FACT_Q;
+        }
+    } else {
+        hash = (key_size * HASH_MAP_FACT_P) % HASH_MAP_FACT_Q;
     }
     if(hash<0) hash*=-1;
     hash = 1000;
@@ -148,6 +157,8 @@ static inline int HashMapHas(HashMap* hm, const int key_size, HashMapKey key) {
 static inline HashMapData HashMapRemove(HashMap* hm, const int key_size, HashMapKey key) {
     if(key == NULL) return NULL;
     
+    //fprintf(stderr,"HashMap remove ptr %p\n", *((void**)key));
+    
     const int hash = HashMapCalcHash(key_size, key);
     
     HashMapNode* currentNode = (HashMapNode*) ArrayListGetValueAt(&hm->nodes, hash);
@@ -162,13 +173,16 @@ static inline HashMapData HashMapRemove(HashMap* hm, const int key_size, HashMap
                 if(hm->cmp(element->key, key)) {
                     HashMapData ret = element->value;
                     ListDetachElement(&(currentNode->values), i);
-                    free(element);
+                    FREE(element);
+                    //fprintf(stderr, "RESULT REMOVED HashMap remove ptr %p\n", *((void**)key));
                     return ret;
                 }
             }
         }
     }
     
+    //fprintf(stderr,"RESULT KEY NOT FOUND HashMap remove ptr %p\n", *((void**)key));
+    return NULL;
 }
 
 
@@ -188,10 +202,10 @@ static inline void HashMapRemoveDeep(HashMap* hm, const int key_size, HashMapKey
         if(element != NULL) {
             if(element->key != NULL) {
                 if(hm->cmp(element->key, key)) {
-                    free(element->value);
-                    free(element->key);
+                    FREE(element->value);
+                    FREE(element->key);
                     ListDetachElement(&(currentNode->values), i);
-                    free(element);
+                    FREE(element);
                     return;
                 }
             }
@@ -207,11 +221,11 @@ static inline void HashMapDestroy(HashMap* hm) {
         LOOP_LIST(&(currentNode->values), j) {
             HashMapElement* element = (HashMapElement*) ListGetValue(j);
             if(element != NULL) {
-                free(element);
+                FREE(element);
             }
         }
         ListDestroy(&(currentNode->values));
-        free(currentNode);
+        FREE(currentNode);
     }
     ArrayListDestroy(&(hm->nodes));
 }
@@ -222,13 +236,13 @@ static inline void HashMapDestroyDeep(HashMap* hm) {
         LOOP_LIST(&(currentNode->values), j) {
             HashMapElement* element = (HashMapElement*) ListGetValue(j);
             if(element != NULL) {
-                free(element->value);
-                free(element->key);
-                free(element);
+                FREE(element->value);
+                FREE(element->key);
+                FREE(element);
             }
         }
         ListDestroy(&(currentNode->values));
-        free(currentNode);
+        FREE(currentNode);
     }
     ArrayListDestroy(&(hm->nodes));
 }

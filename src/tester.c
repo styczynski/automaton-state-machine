@@ -9,7 +9,11 @@
 #include "memalloc.h"
 #include "syslog.h"
 
+#include "gcinit.h"
+
 int main(void) {
+    
+    GC_SETUP();
     
     char* inputQueueName = MALLOCATE_ARRAY(char, 40);
     sprintf(inputQueueName, "/FinAutomTesterInQ%d", getpid());
@@ -19,13 +23,14 @@ int main(void) {
     
     msgQueueWritef(reportQueue, "tester-register: %lld %s", (long long)getpid(), inputQueueName);
     
-    char* line_buf = (char*) malloc(LINE_BUF_SIZE * sizeof(char));
+    char* line_buf = MALLOCATE_ARRAY(char, LINE_BUF_SIZE);
     size_t line_buf_size = LINE_BUF_SIZE;
     line_buf[0] = '\0';
    
     printf("PID: %d\n", getpid());
     
     ArrayList results = ArrayListNew();
+    
     
     int req_count = 0;
     int ans_count = 0;
@@ -73,14 +78,13 @@ int main(void) {
                         ++ans_count;
                         log(TESTER, "Got answer from server: %s %d", saved_word, ans);
                         
-                        free(saved_word);
+                        FREE(saved_word);
                         ArrayListSetValueAt(&results, loc_id, NULL);
-                        
                         
                     } else {
                        log_err(TESTER, "Invalid locid in response from server: [%s]\n", msg); 
                     }
-                } else if(strcmp(msg, "exit")) {
+                } else if(strcmp(msg, "exit") == 0) {
                     log_warn(TESTER, "Got exit request from server!");
                     break;
                 } else {
@@ -101,7 +105,7 @@ int main(void) {
     LOOP_ARRAY_LIST(&results, i) {
         char* saved_word = (char*) ArrayListGetValue(i);
         if(saved_word != NULL) {
-            free(saved_word);
+            FREE(saved_word);
         }
     }
     ArrayListDestroy(&results);
@@ -109,8 +113,9 @@ int main(void) {
     msgQueueClose(&reportQueue);
     msgQueueRemove(&inputQueue);
     
-    free(inputQueueName);
-    free(line_buf);
+    FREE(inputQueueName);
+    FREE(line_buf);
+    
     
     return 0;
 }

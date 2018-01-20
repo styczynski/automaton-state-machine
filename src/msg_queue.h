@@ -67,7 +67,7 @@ MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_ms
     
     if(msgq.desc == (mqd_t) -1) {
         syserr("msgQueueOpenEx failed due to mq_open(%s) error", msgq.name);
-        free(msgq.name);
+        FREE(msgq.name);
         msgq.name = NULL;
         msgq.buff = NULL;
         msgq.buff_size = 0;
@@ -76,7 +76,7 @@ MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_ms
 
     if (mq_getattr(msgq.desc, &msgq.mq_a)) {
         syserr("msgQueueOpenEx failed due to mq_getattr(desc=%d) error", msgq.desc);
-        free(msgq.name);
+        FREE(msgq.name);
         msgq.name = NULL;
         msgq.buff = NULL;
         msgq.buff_size = 0;
@@ -175,8 +175,8 @@ char* msgQueueSeek(MsgQueue msgq) {
 int msgQueueAbandon(MsgQueue* msgq) {
     if(msgq->name == NULL) return -1;
     
-    free(msgq->name);
-    free(msgq->buff);
+    FREE(msgq->name);
+    FREE(msgq->buff);
     
     msgq->name = NULL;
     msgq->buff = NULL;
