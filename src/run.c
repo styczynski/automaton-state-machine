@@ -8,8 +8,9 @@
 
 #include "gcinit.h"
 
+// valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --trace-children=yes --track-origins=yes ./validator < ../validator.in
+
 int acceptSync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth) {
-    
     
     if(depth >= word_len) {
         return tg->acceptingStates[current_state];
@@ -42,7 +43,7 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
         return tg->acceptingStates[current_state];
     }
     
-    log_warn(RUN, " > word %s at char # %d = %c, state = %d", word, depth, word[depth], current_state);
+    //log_warn(RUN, " > word %s at char # %d = %c, state = %d", word, depth, word[depth], current_state);
     
     const int current_letter = (int)word[depth];
     const int branch_count = tg->size[current_state][current_letter];
@@ -51,7 +52,7 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
     MsgPipe acceptAsyncDataPipe[branch_count];
     pid_t acceptAsyncPid[branch_count];
     
-    _trigForkErr_ = 1;
+    _trigForkErr_ = 0;
     
     if(current_state >= tg->U) {
         // Existential state
@@ -66,6 +67,8 @@ int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_st
             } else if(status == 1) {
                 
                 MsgPipe parentPipe = msgPipeOpen(acceptAsyncDataPipeID[i]);
+                
+                //fprintf(stderr, "State %d --[%c]--> %d (%d / %d)\n", current_state, current_letter, tg->graph[current_state][current_letter][i], i, branch_count);
                 
                 if(acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1)) {
                     msgPipeWrite(parentPipe, "A");
@@ -164,13 +167,12 @@ int acceptAsync(TransitionGraph tg, char* word) {
 int main(int argc, char *argv[]) {
     
     GC_SETUP();
-    GC_LOG_ON();
     
     if(argc < 2) {
         fatal(RUN, "Wrong number of parameters should be at least 1.");
     }
     
-    MsgQueue reportQueue = msgQueueOpen("/FinAutomReportQueue", 50, 10);
+    MsgQueue runOutputQueue = msgQueueOpen("/FinAutomRunOutQueue", 50, 10);
     MsgQueue taskQueue = msgQueueOpen("/FinAutomTaskQueue", 30, 10);
     
     MsgPipeID graphDataPipeID = msgPipeIDFromStr(argv[1]);
@@ -199,10 +201,10 @@ int main(int argc, char *argv[]) {
     }
     
     log(RUN, "Terminate.");
-    msgQueueWritef(reportQueue, "run-terminate: %lld %d", (long long)getpid(), result);
+    msgQueueWritef(runOutputQueue, "run-terminate: %lld %d", (long long)getpid(), result);
     
     msgQueueClose(&taskQueue);
-    msgQueueClose(&reportQueue);
+    msgQueueClose(&runOutputQueue);
     msgPipeClose(&graphDataPipe);
     
     return 0;

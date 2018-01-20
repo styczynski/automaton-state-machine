@@ -77,7 +77,7 @@ static void __gc_mem_tree__(int mode, void* p) {
         }
         
         //fprintf(stderr, "GC: Free %p (left: %d) = %d\n", p, mem_size, HashMapHas(&GCmemMap, sizeof(void*), (void*) &p));
-    } else if(mode == 2 || mode == 3) {
+    } else if(mode == 2 || mode == 3 || mode == 5) {
         LOOP_HASHMAP(&GCmemMap, i) {
             void* ptr = HashMapGetValue(i);
             if(logEnabled) {
@@ -85,14 +85,21 @@ static void __gc_mem_tree__(int mode, void* p) {
             }
             free(ptr);
         }
-        HashMapDestroy(&GCmemMap);
-        processWaitForAll();
+        
+        if(mode != 5) {
+            HashMapDestroy(&GCmemMap);
+            processWaitForAll();
+        }
         
         if(mode == 3) {
-            log_info(GC, "GC Automatic cleanup done at exit (code = %d).", (int) (intptr_t) p);
+            if(logEnabled) {
+                log_info(GC, "GC Automatic cleanup done at exit (code = %d).", (int) (intptr_t) p);
+            }
             exit((int) (intptr_t) p);
         } else {
-            log_info(GC, "GC Automatic cleanup done.");
+            if(logEnabled) {
+                log_info(GC, "GC Automatic cleanup done.");
+            }
         }
     } else if(mode == 4) {
         logEnabled = (int) (intptr_t) p;
@@ -106,8 +113,6 @@ static inline void __gc_exit_hook__() {
 }
 
 static void __gc_init__() {
-    
-    log_info(GC, "GC Initialize.");
     
     if(atexit(__gc_exit_hook__) != 0) {
         syserr("Could not initialize GC");

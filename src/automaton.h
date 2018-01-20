@@ -47,12 +47,15 @@ void initTransitionGraph(TransitionGraph tg) {
     for(int q=0;q<MAX_Q;++q) {
         for(int a=0;a<MAX_A;++a) {
             tg->size[q][a] = 0;
+            for(int p=0;p<MAX_Q;++p) {
+                tg->graph[q][a][p] = -1;
+            }
         }
     }
 }
 
 TransitionGraph newTransitionGraph() {
-    TransitionGraph tg = (TransitionGraph) malloc(sizeof(TransitionGraphImpl));
+    TransitionGraph tg = MALLOCATE(TransitionGraphImpl);
     initTransitionGraph(tg);
     return tg;
 }
@@ -98,13 +101,21 @@ void loadTransitionGraph(char** input, TransitionGraph tg) {
         pos += npos;
     }
 
-    while(strGetline(&line_buf, &line_buf_size, input) > 0) {
-       sscanf(line_buf, "%d %c%n", &q, &a, &pos);
-       if(*((char*)(line_buf+pos)) == '\0') break;
-       while(sscanf(line_buf+pos, "%d%n", &r, &npos)) {
-           pos += npos;
-           tg->graph[q][(int)a][tg->size[q][(int)a]++] = r;
+    while(1) {
+       int getline_size = strGetline(&line_buf, &line_buf_size, input);
+       if(getline_size == -1) break;
+
+       if(getline_size > 0) {
+           if(!sscanf(line_buf, "%d %c%n", &q, &a, &pos)) {
+               continue;
+           }
            if(*((char*)(line_buf+pos)) == '\0') break;
+           while(sscanf(line_buf+pos, "%d%n", &r, &npos)) {
+               pos += npos;
+               //fprintf(stderr, "set [%d][%c][%d]\n", q, a, tg->size[q][a]);
+               tg->graph[q][(int)a][tg->size[q][(int)a]++] = r;
+               if(*((char*)(line_buf+pos)) == '\0') break;
+           }
        }
     }
     

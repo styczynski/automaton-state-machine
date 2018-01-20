@@ -141,7 +141,7 @@ int processWaitForAllNonBlocking() {
 }
 
 void processExit(int status) {
-    _exit(status);
+    exit(status);
 }
 
 #endif // __FORK_H__

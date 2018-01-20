@@ -1,7 +1,47 @@
 #include <stdio.h>
 #include "msg_pipe.h"
 #include "fork.h"
+#include "memalloc.h"
 #include "syslog.h"
+#include "gcinit.h"
+
+int main(void) {
+    
+    GC_SETUP();
+    GC_LOG_ON();
+    
+    char* data = MALLOCATE_ARRAY(char, 3);
+    data[0] = 13;
+    printf("Root: Data is %p = %d\n", (void*) data, data[0]);
+    
+    
+    pid_t pid;
+    int status = processFork(&pid);
+    
+    if(status == 1) {
+        data[0] = 42;
+        printf("Child: Data is %p = %d\n", (void*) data, data[0]);
+        int j = 0;
+        for(int i=0; i<100; ++i) {
+            if(j%2) ++j; else --j;
+        }
+        printf("Child: Data is %p = %d\n", (void*) data, data[0]);
+    } else if (status == 0) {
+        data[0] = 18;
+        printf("Parent: Data is %p = %d\n", (void*) data, data[0]);
+        int j = 0;
+        for(int i=0; i<100; ++i) {
+            if(j%2) ++j; else --j;
+        }
+        printf("Parent: Data is %p = %d\n", (void*) data, data[0]);
+    }
+    
+    processWaitForAll();
+    FREE(data);
+    return 0;
+    
+}
+
 
 /*include "hashmap.h"
 
@@ -32,7 +72,7 @@ int main(void) {
     HashMapDestroyV(hm, int, custom_type);
 }*/
 
-
+/*
 int main(void) {
     
     MsgPipeID taskPipeID = msgPipeCreate(100);
@@ -64,5 +104,5 @@ int main(void) {
     }
     
     return 0;
-}
+}*/
 

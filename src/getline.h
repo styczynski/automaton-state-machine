@@ -62,6 +62,9 @@ char* strGets(char* out, int n, char** str_stream) {
         } else if((*str_stream)[i] == '\0') {
             *outi = (*str_stream)[i];
             *str_stream = &((*str_stream)[i]);
+            if(i == 0) {
+                return NULL;
+            }
             return out;
         } else {
             *outi = (*str_stream)[i];

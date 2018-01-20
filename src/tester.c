@@ -43,9 +43,11 @@ int main(void) {
         
         if(read_input) {
             ++loc_id;
-            if(getline(&line_buf, &line_buf_size, stdin) > 0) {
+            
+            int getline_size = getline(&line_buf, &line_buf_size, stdin);
+            if(getline_size > 0) {
                 if(strcmp(line_buf, "!") == 0) {
-                    log(TESTER, "Sent termination request");
+                    log_warn(TESTER, "Sent termination request");
                     msgQueueWrite(reportQueue, "exit");
                     read_input = 0;
                 } else {
@@ -59,7 +61,8 @@ int main(void) {
                     msgQueueWritef(reportQueue, "parse: %lld %d %s", (long long)getpid(), loc_id, line_buf);
                     ++req_count;
                 }
-            } else {
+            } else if(getline_size == -1) {
+                log_warn(TESTER, "Ended input reading. Input has terminated.");
                 read_input = 0;
             }
         }
