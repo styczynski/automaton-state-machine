@@ -18,6 +18,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include "memalloc.h"
+#include "msg_pipe.h"
+#include "fork.h"
 
 /**
  * Iternal type of the transition graph
@@ -242,5 +244,223 @@ void loadTransitionGraph(char** input, TransitionGraph tg) {
     
 }
 
+
+
+/**
+ * Helper function for acceptSync.
+ * Recursively calculates accept() on the transition graph nodes.
+ * 
+ * @param [in] tg            : Transition graph
+ * @param [in] word          : Input word
+ * @param [in] word_len      : Input word size
+ * @param [in] current_state : Current state of the automaton
+ * @param [in] depth         : Position in word correlated with the current state
+ * @return Is the word accepted by automaton defined by transition graph?
+ */
+int acceptSync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth) {
+    
+    if(depth >= word_len) {
+        return tg->acceptingStates[current_state];
+    }
+    
+#if DEBUG_ACCEPT_RUN == 1    
+    log_warn(RUN, "At state %d in word {%s} at pos {%d/%d}", current_state, word, depth, word_len);
+#endif
+    
+    const int current_letter = (int)(word[depth] - 'a');
+    const int branch_count = tg->size[current_state][current_letter];
+    
+    if(current_state >= tg->U) {
+        // Existential state
+        for(int i=0;i<branch_count;++i) {
+            if(acceptSync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1)) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+   
+    // Universal state
+    for(int i=0;i<branch_count;++i) {
+        if(!acceptSync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/*
+ * Declaration of async accept helper
+ */
+static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload);
+
+/*
+ * Helper function for acceptAsync_rec
+ * Executes async accept on subprocesses and collects results
+ */
+static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload) {
+    
+    const int current_letter = (int)(word[depth]-'a');
+    const int branch_count = tg->size[current_state][current_letter];
+    
+    MsgPipeID acceptAsyncDataPipeID[branch_count];
+    MsgPipe acceptAsyncDataPipe[branch_count];
+    pid_t acceptAsyncPid[branch_count];
+    
+    if(branch_count <= 0) {
+        return !is_existential_state;
+    }
+    
+    for(int i=1;i<branch_count;++i) {
+        
+        acceptAsyncDataPipeID[i] = msgPipeCreate(5);
+        int status = processFork(&acceptAsyncPid[i]);
+        
+        if(status == -1) {
+            log_err(RUN, "Failed to fork subprocess");
+            exit(-1);
+        } else if(status == 1) {
+            
+            MsgPipe parentPipe = msgPipeOpen(acceptAsyncDataPipeID[i]);
+            
+            int new_workload = 0;
+            
+            if(acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1, &new_workload)) {
+                msgPipeWrite(parentPipe, "A");
+                msgPipeClose(&parentPipe);
+            } else {
+                msgPipeWrite(parentPipe, "N");
+                msgPipeClose(&parentPipe);
+            }
+            
+            processExit(0);
+        } else if(status == 0) {
+            acceptAsyncDataPipe[i] = msgPipeOpen(acceptAsyncDataPipeID[i]);
+        }
+    }
+    
+    int originValue = acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][0], depth+1, workload);
+    
+    if(processWaitForAll() == -1) {
+        log_err(RUN, "Child exited abnormally, so terminate.");
+        exit(-1);
+    }
+    
+    if((is_existential_state && originValue) || (!is_existential_state && !originValue)) {
+        for(int j=1;j<branch_count;++j) {
+            msgPipeClose(&acceptAsyncDataPipe[j]);
+        }
+        return is_existential_state;
+    }
+    
+    for(int i=1;i<branch_count;++i) {
+        char* rcv = msgPipeRead(acceptAsyncDataPipe[i]);
+        if((is_existential_state && strcmp(rcv, "A") == 0) || (!is_existential_state && strcmp(rcv, "A") != 0)) {
+            for(int j=1;j<branch_count;++j) {
+                msgPipeClose(&acceptAsyncDataPipe[j]);
+            }
+            return is_existential_state;
+        }
+    }
+    
+    for(int j=1;j<branch_count;++j) {
+        msgPipeClose(&acceptAsyncDataPipe[j]);
+    }
+    
+    return !is_existential_state;
+}
+
+/**
+ * Helper function for acceptAsync.
+ *
+ * Recursively calculates accept() on the transition graph nodes.
+ * This function uses multiprocess asynchronious approach or synchronized version depending on
+ * heuristic value workload.
+ *
+ * The workload is the number of nodes parsed by the algorithm so far.
+ * That is zeroed after fork.
+ *
+ * If the workload exceeds RUN_WORKLOAD_LIMIT then forking is preffered over synchronious code.
+ * 
+ * @param [in] tg            : Transition graph
+ * @param [in] word          : Input word
+ * @param [in] word_len      : Input word size
+ * @param [in] current_state : Current state of the automaton
+ * @param [in] depth         : Position in word correlated with the current state
+ * @param [in] workload      : Pointer to workload value 
+ *
+ * @return Is the word accepted by automaton defined by transition graph?
+ */
+static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload) {
+    
+    ++(*workload);
+    
+    if(depth >= word_len) {
+        return tg->acceptingStates[current_state];
+    }
+    
+#if DEBUG_ACCEPT_RUN == 1    
+    log_warn(RUN, "At state %d in word {%s} at pos {%d/%d}", current_state, word, depth, word_len);
+#endif
+    
+    if(*workload < RUN_WORKLOAD_LIMIT) {
+        // Sync version
+        
+        const int current_letter = (int)(word[depth] - 'a');
+        const int branch_count = tg->size[current_state][current_letter];
+        if(current_state >= tg->U) {
+            // Existential state
+            for(int i=0;i<branch_count;++i) {
+                if(acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1, workload)) {
+                    return 1;
+                }
+            }
+            return 0;
+        }
+        
+        // Universal state
+        for(int i=0;i<branch_count;++i) {
+            if(!acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1, workload)) {
+                return 0;
+            }
+        }
+        return 1;
+    } else {
+        // Async version
+        
+        if(current_state >= tg->U) {
+            // Existential state
+            return acceptAsync_node(1, tg, word, word_len, current_state, depth, workload);
+        }
+        
+        // Universal state
+        return acceptAsync_node(0, tg, word, word_len, current_state, depth, workload);
+    }
+}
+
+/**
+ * Recursively calculates accept() on the transition graph nodes.
+ * This function uses synchronized single-process approach.
+ *
+ * @param [in] tg            : Transition graph
+ * @param [in] word          : Input word
+ * @return Is the word accepted by automaton defined by transition graph?
+ */
+int acceptSync(TransitionGraph tg, char* word) {
+    return acceptSync_rec(tg, word, strlen(word), tg->q0, 0);
+}
+
+/**
+ * Recursively calculates accept() on the transition graph nodes.
+ * This function uses multiprocess asynchronious approach or synchronized version depending on heuristic values.
+ *
+ * @param [in] tg            : Transition graph
+ * @param [in] word          : Input word
+ * @return Is the word accepted by automaton defined by transition graph?
+ */
+int acceptAsync(TransitionGraph tg, char* word) {
+    int workload = 1;
+    return acceptAsync_rec(tg, word, strlen(word), tg->q0, 0, &workload);
+}
 
 #endif // __AUTOMATON_H__

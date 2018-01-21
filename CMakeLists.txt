@@ -27,8 +27,8 @@ set(CMAKE_C_FLAGS "-std=c11 -Wall -Wextra -pedantic")
 #   Use -DNO_LOG      to disable logging at all (only fatals are logged)
 #   Use -DENABLE_GC   to enable GC
 #
-set(CMAKE_C_FLAGS_RELEASE "-O3 -DENABLE_GC -fno-exceptions")
-set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG -DENABLE_GC -O0")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -Wno-strict-overflow -DENABLE_GC -fno-exceptions")
+set(CMAKE_C_FLAGS_DEBUG "-g -Wno-strict-overflow -DDEBUG -DENABLE_GC -O0")
 
 # Inclusion directories
 include_directories(./src/)

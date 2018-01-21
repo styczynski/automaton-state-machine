@@ -222,11 +222,11 @@ static inline ArrayListData ArrayListGetValueAt(ArrayList* l, const int position
     return NULL;
   } else {
       
-    if(!(position >= 0 && position < l->size)) {
+    if(!((position >= 0) && (position < l->size))) {
         ArrayListResizeFill(l, position + 17);
     }
       
-    if(position >= 0 && position < l->size) {
+    if((position >= 0) && (position < l->size)) {
         return (l->data)[position];
     } else {
         return NULL;
