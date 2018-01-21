@@ -1,3 +1,11 @@
+/** @file
+*
+*  Set of exit status handling utilites. (C99 standard)
+*
+*  @author Piotr Styczyński <piotrsty1@gmail.com>
+*  @copyright MIT
+*  @date 2018-01-21
+*/
 #ifndef __ONEXIT_H__
 #define __ONEXIT_H__
 
@@ -5,6 +13,7 @@
 
 #define ON_EXIT_MAX_HANDLERS_COUNT 10
 
+/** Type of exit callback function */
 typedef void (*OnExitHandler)();
 
 static int __on_exit_called_mode__ = 0;

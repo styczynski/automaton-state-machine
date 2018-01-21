@@ -1,3 +1,11 @@
+/** @file
+*
+*  Message queues (natively: msq) unified interface. (C99 standard)
+*
+*  @author Piotr Styczyński <piotrsty1@gmail.com>
+*  @copyright MIT
+*  @date 2018-01-21
+*/
 #ifndef __MSG_QUEUE_H__
 #define __MSG_QUEUE_H__
 
@@ -13,11 +21,16 @@
 #include "memalloc.h"
 #include "syslog.h"
 
+/**
+ * @def MAX_MSG_QUEUE_NAME_SIZE
+ *  Macro defining maximum queue name.
+ */
 #define MAX_MSG_QUEUE_NAME_SIZE 50
 
-
+/** Type of message queue */
 typedef struct MsgQueue MsgQueue;
 
+/** Type of message queue */
 struct MsgQueue {
     struct mq_attr mq_a;
     mqd_t desc;
@@ -27,6 +40,18 @@ struct MsgQueue {
     int is_blocking;
 };
 
+/**
+ * Opens new message queue.
+ *
+ * NOTE:
+ *   Each msgQueuOpen msut have corresponding msgQueueRemove(), msgQueueClose() or msgQueueAbandon()
+ *
+ * @param[in] q_name      : Path to the queue that will be opened (created when not exists)
+ * @param[in] msg_size    : Maximum allowed length of single message
+ * @param[in] max_msg     : Maximum number of messages
+ * @param[in] is_blocking : Is the operations on the queue blocking?
+ * @returns Opened MsgQueue
+ */
 MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_msg, const int is_blocking) {
     
     MsgQueue msgq;
@@ -90,14 +115,46 @@ MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_ms
     return msgq;
 }
 
+/**
+ * Opens new BLOCKING message queue.
+ * 
+ * NOTE:
+ *   Each msgQueuOpen msut have corresponding msgQueueRemove(), msgQueueClose() or msgQueueAbandon()
+ *
+ * @param[in] q_name      : Path to the queue that will be opened (created when not exists)
+ * @param[in] msg_size    : Maximum allowed length of single message
+ * @param[in] max_msg     : Maximum number of messages
+ * @returns Opened blocking MsgQueue
+ */
 MsgQueue msgQueueOpen(const char* q_name, const int msg_size, const int max_msg) {
     return msgQueueOpenEx(q_name, msg_size, max_msg, 1);
 }
 
+/**
+ * Opens new NONBLOCKING message queue.
+ * 
+ * NOTE:
+ *   Each msgQueuOpen msut have corresponding msgQueueRemove(), msgQueueClose() or msgQueueAbandon()
+ *
+ * @param[in] q_name      : Path to the queue that will be opened (created when not exists)
+ * @param[in] msg_size    : Maximum allowed length of single message
+ * @param[in] max_msg     : Maximum number of messages
+ * @returns Opened nonblocking MsgQueue
+ */
 MsgQueue msgQueueOpenNonBlocking(const char* q_name, const int msg_size, const int max_msg) {
     return msgQueueOpenEx(q_name, msg_size, max_msg, 0);
 }
 
+/**
+ * Read string from the queue.
+ *
+ * NOTE:
+ *   The returned pointer MUST NOT be FREED.
+ *   It's valid until next read operation and stored in interal queue strucutres.
+ * 
+ * @param[in] msgq : Queue to read from
+ * @returns Pointer to the internal buffer or NULL on error
+ */
 char* msgQueueRead(MsgQueue msgq) {
     if(msgq.name == NULL) return NULL;
     
@@ -120,6 +177,19 @@ char* msgQueueRead(MsgQueue msgq) {
     return msgq.buff;
 }
 
+/**
+ * Read formatted string from the queue.
+ * Operates as scanf do.
+ *
+ * NOTE:
+ *   The returned pointer MUST NOT be FREED.
+ *   It's valid until next read operation and stored in interal queue strucutres.
+ * 
+ * @param[in] msgq   : Queue to read from
+ * @param[in] format : Scanf compatible format cstring
+ * @param[in] ...    : List of scanf-like pointers to loaded data
+ * @returns Return code form executing sscanf
+ */
 int msgQueueReadf(MsgQueue msgq, const char* format, ...) {
     if(msgq.name == NULL) return -1;
     
@@ -134,6 +204,16 @@ int msgQueueReadf(MsgQueue msgq, const char* format, ...) {
     return resultCode;
 }
 
+/**
+ * Write string to the queue.
+ * 
+ * NOTE:
+ *  Message cannot be greater than maximum size set when creating the queue.
+ *
+ * @param[in] msgp    : Queue to write to
+ * @param[in] message : Message to be written
+ * @returns Return -1 on failure; 1 on success
+ */
 int msgQueueWrite(MsgQueue msgq, char* message) {
     if(msgq.name == NULL) return -1;
     
@@ -150,6 +230,19 @@ int msgQueueWrite(MsgQueue msgq, char* message) {
     return ret;
 }
 
+/**
+ * Write formatted string to the queue.
+ * Operates as printf do.
+ * 
+ * NOTE:
+ *  Message cannot be greater than maximum size set when creating the queue.
+ *
+ * @param[in] msgp    : Queue to write to
+ * 
+ * @param[in] format : Printf compatible format cstring
+ * @param[in] ...    : List of printf-like pointers to loaded data
+ * @returns Return -1 on failure; 1 on success
+ */
 int msgQueueWritef(MsgQueue msgq, const char* format, ...) {
     if(msgq.name == NULL) return -1;
     
@@ -163,6 +256,23 @@ int msgQueueWritef(MsgQueue msgq, const char* format, ...) {
     return msgQueueWrite(msgq, buffer);
 }
 
+/**
+ * Reads form the queue but places the value back in it.
+ *
+ * Equivalent to execute:
+ *
+ *    char* ret = msgQueueRead(msgq);
+ *    msgQueueWrite(msgq, ret);
+ *    return ret;
+ * 
+ *
+ * NOTE:
+ *   The returned pointer MUST NOT be FREED.
+ *   It's valid until next read operation and stored in interal queue strucutres. 
+ *
+ * @param[in] msgq : Description for msgq
+ * @returns Return description
+ */
 char* msgQueueSeek(MsgQueue msgq) {
     if(msgq.name == NULL) return NULL;
     
@@ -172,6 +282,17 @@ char* msgQueueSeek(MsgQueue msgq) {
     return ret;
 }
 
+/**
+ * Abandon queue.
+ * It's not closes but all resources are freed.
+ * This function does not execute native mq_close(queue) function as msgQueueClose(...) does.
+ * 
+ * NOTE:
+ *   Each msgQueuOpen msut have corresponding msgQueueRemove(), msgQueueClose() or msgQueueAbandon()
+ *
+ * @param[in] msgq : Queue pointer
+ * @returns -1 on error; 1 on success
+ */
 int msgQueueAbandon(MsgQueue* msgq) {
     if(msgq->name == NULL) return -1;
     
@@ -184,6 +305,17 @@ int msgQueueAbandon(MsgQueue* msgq) {
     return 1;
 }
 
+/**
+ * Closes queue and frees all resoureces.
+ * Optionally (if @p unlink is true) unlinks (removes) the queue form filesystem.
+ *
+ * NOTE:
+ *   Each msgQueueOpen must have correspondingcorresponding msgQueueRemove(), msgQueueClose() or msgQueueAbandon()
+ *
+ * @param[in] msgq   : Queue pointer
+ * @param[in] unlink : Should the queue file be removed?
+ * @returns -1 on error; 1 on success
+ */
 int msgQueueCloseEx(MsgQueue* msgq, int unlink) {
     if(msgq->name == NULL) return -1;
     
@@ -204,14 +336,39 @@ int msgQueueCloseEx(MsgQueue* msgq, int unlink) {
     return 1;
 }
 
+/**
+ * Closes queue, frees all resoureces and then unlinks (removes) the queue form filesystem.
+ *
+ * NOTE:
+ *   Each msgQueueOpen must have corresponding msgQueueRemove(), msgQueueClose() or msgQueueAbandon()
+ *
+ * @param[in] msgq   : Queue pointer
+ * @returns -1 on error; 1 on success
+ */
 int msgQueueRemove(MsgQueue* msgq) {
     return msgQueueCloseEx(msgq, 1);
 }
 
+/**
+ * Closes queue and frees all resoureces, but leaves queue in the filesystem.
+ *
+ * NOTE:
+ *   Each msgQueueOpen must have corresponding msgQueueRemove(), msgQueueClose() or msgQueueAbandon()
+ *
+ * @param[in] msgq   : Queue pointer
+ * @returns -1 on error; 1 on success
+ */
 int msgQueueClose(MsgQueue* msgq) {
     return msgQueueCloseEx(msgq, 0);
 }
 
+/**
+ * Modify blocking behaviour of the queue.
+ * 
+ * @param[in] msgq : Pointer to the modified queue
+ * @param[in] will_block : Will the queue be blocking from now?
+ * @returns Return -1 on failure and 1 on success
+ */
 int msgQueueMakeBlocking(MsgQueue* msgq, int will_block) {
     if(msgq->name == NULL) return -1;
     

@@ -1,8 +1,23 @@
+/** @file
+*
+*  Message pipes unified interface. (C99 standard)
+*
+*  @author Piotr Styczyński <piotrsty1@gmail.com>
+*  @copyright MIT
+*  @date 2018-01-21
+*/
 #ifndef __MSG_PIPE_H__
 #define __MSG_PIPE_H__
 
 #ifndef DEBUG_MSG_PIPE
+
+/**
+ * @def DEBUG_MSG_PIPE
+ *  If DEBUG_MSG_PIPE is equal to 1 then every message sent by pipe is logged
+ *  via syslog.h functions
+ */
 #define DEBUG_MSG_PIPE 0
+
 #endif // DEBUG_MSG_PIPE
 
 #include <string.h>
@@ -12,24 +27,35 @@
 #include "memalloc.h"
 #include "syslog.h"
 
+/** Type of message pipe */
 typedef struct MsgPipe MsgPipe;
+
+/** Type of message pipe identificator */
 typedef struct MsgPipeID MsgPipeID;
 
+/** Type of message pipe identificator */
 struct MsgPipeID {
-    int pipe_desc[2];
-    int good;
-    int buff_size;
+    int pipe_desc[2]; ///< pipe descriptors (0 - read; 1 - write)
+    int good;         ///< no error indicator
+    int buff_size;    ///< recommented size of the buffer for pipe messages
 };
 
+/** Type of message pipe */
 struct MsgPipe {
-    int pipe_desc[2];
-    int good;
-    char* buff;
-    int buff_size;
-    int opened_read;
-    int opened_write;
+    int pipe_desc[2]; ///< pipe descriptors (0 - read; 1 - write)
+    int good;         ///< no error indicator
+    char* buff;       ///< read buffer
+    int buff_size;    ///< read buffer size
+    int opened_read;  ///< is read descriptor open?
+    int opened_write; ///< is write descriptor open? 
 };
 
+/**
+ * Create new pipe with given message size limit.
+ * 
+ * @param[in] msg_size : Limit for message length
+ * @returns Returns pipe identificator
+ */
 MsgPipeID msgPipeCreate(const int msg_size) {
     
     MsgPipeID msgpid;
@@ -42,11 +68,18 @@ MsgPipeID msgPipeCreate(const int msg_size) {
     msgpid.buff_size = msg_size + 7;
     msgpid.good = 1;
  
-    //log_err(MSGPIP, " >>> Create pipe: %d%d", msgpid.pipe_desc[0], msgpid.pipe_desc[1]);
- 
     return msgpid;
 }
 
+/**
+ * Converts message pipe identificator to the string representation.
+ * Stringified pipe indentificator can be passed as program arguments or sent
+ * into remote places to be converted back and used to open pipes.
+ * 
+ * @param[in] msgpid : Pipe indentificator
+ * @param[in] out    : Output buffer 
+ * @returns -1 for failure; 1 for success
+ */
 int msgPipeIDToStr(MsgPipeID msgpid, char* out) {
     if(!msgpid.good) {
         out[0] = '\0';
@@ -56,10 +89,24 @@ int msgPipeIDToStr(MsgPipeID msgpid, char* out) {
     return 1;
 }
 
+/**
+ * Checks if the indicator is valid and the pipe has not crashed.
+ * 
+ * @param[in] msgpid : Pipe indentificator
+ * @returns If the identificator and pipe itself is not broken?
+ */
 int msgPipeIsGoodID(MsgPipeID msgpid) {
     return msgpid.good;
 }
 
+/**
+ * Converts message pipe stringified identificator back to the object.
+ * Stringified pipe indentificator can be passed as program arguments or sent
+ * into remote places to be converted back and used to open pipes.
+ * 
+ * @param[in] out    : Input buffer 
+ * @returns  Pipe indentificator 
+ */
 MsgPipeID msgPipeIDFromStr(char* in) {
     if(in == NULL) {
         syserrv("msgPipeIDFromStr() failed string is NULL");
@@ -78,6 +125,16 @@ MsgPipeID msgPipeIDFromStr(char* in) {
     return msgpid;
 }
 
+/**
+ * Opens blocking pipe.
+ * 
+ * NOTE:
+ *   Each msgPipeOpen msut have corresponding
+ *   msgPipeClose() or msgPipeAbandon()
+ *
+ * @param[in] msgp_src :  Pipe indentificator
+ * @returns Returns pipe object
+ */
 MsgPipe msgPipeOpen(MsgPipeID msgp_src) {
     MsgPipe msgp;
     
@@ -94,6 +151,17 @@ MsgPipe msgPipeOpen(MsgPipeID msgp_src) {
     return msgp;
 }
 
+/**
+ * Closes pipe (but only in read direction).
+ *
+ * NOTE:
+ *  This function only modifies pipe operating mode.
+ *  Each msgPipeOpen msut have corresponding msgPipeClose() or msgPipeAbandon()
+ *  msgPipeCloseRead/-Write do not act as msgPipeClose
+ * 
+ * @param[in] msgp_src :  Pipe pointer
+ * @returns -1 on error (e.g. multiple read-closes); 1 on success
+ */
 int msgPipeCloseRead(MsgPipe* msgp) {
     if(msgp == NULL) return -1;
     
@@ -110,6 +178,17 @@ int msgPipeCloseRead(MsgPipe* msgp) {
     return 1;
 }
 
+/**
+ * Closes pipe (but only in write direction).
+ *
+ * NOTE:
+ *  This function only modifies pipe operating mode.
+ *  Each msgPipeOpen msut have corresponding msgPipeClose() or msgPipeAbandon()
+ *  msgPipeCloseRead/-Write do not act as msgPipeClose
+ * 
+ * @param[in] msgp_src :  Pipe pointer
+ * @returns -1 on error (e.g. multiple write-closes); 1 on success
+ */
 int msgPipeCloseWrite(MsgPipe* msgp) {
     if(msgp == NULL) return -1;
     
@@ -126,6 +205,17 @@ int msgPipeCloseWrite(MsgPipe* msgp) {
     return 1;
 }
 
+/**
+ * Abandon pipe.
+ * It's not closes but all resources are freed.
+ * This function does not execute native close(pipe) function as msgPipeClose(...) does.
+ * 
+ * NOTE:
+ *   Each msgPipeOpen msut have corresponding msgPipeClose() or msgPipeAbandon()
+ *
+ * @param[in] msgp : Pipe pointer
+ * @returns -1 on error; 1 on success
+ */
 int msgPipeAbandon(MsgPipe* msgp) {
     if(msgp == NULL) return -1;
     
@@ -143,6 +233,15 @@ int msgPipeAbandon(MsgPipe* msgp) {
     return 1;
 }
 
+/**
+ * Closes pipe and frees all resoureces.
+ *
+ * NOTE:
+ *   Each msgPipeOpen msut have corresponding msgPipeClose() or msgPipeAbandon()
+ *
+ * @param[in] msgp : Pipe pointer
+ * @returns -1 on error; 1 on success
+ */
 int msgPipeClose(MsgPipe* msgp) {
     if(msgp == NULL) return -1;
     
@@ -156,6 +255,16 @@ int msgPipeClose(MsgPipe* msgp) {
     return msgPipeAbandon(msgp);
 }
 
+/**
+ * Read string from the pipe.
+ *
+ * NOTE:
+ *   The returned pointer MUST NOT be FREED.
+ *   It's valid until next read operation and stored in interal pipe strucutres.
+ * 
+ * @param[in] msgp : Pipe to read from
+ * @returns Pointer to the internal buffer or NULL on error
+ */
 char* msgPipeRead(MsgPipe msgp) {
     if(!msgp.good || !msgp.opened_read) return NULL;
     
@@ -178,6 +287,19 @@ char* msgPipeRead(MsgPipe msgp) {
     return msgp.buff;
 }
 
+/**
+ * Read formatted string from the pipe.
+ * Operates as scanf do.
+ *
+ * NOTE:
+ *   The returned pointer MUST NOT be FREED.
+ *   It's valid until next read operation and stored in interal pipe strucutres.
+ * 
+ * @param[in] msgp   : Pipe to read from
+ * @param[in] format : Scanf compatible format cstring
+ * @param[in] ...    : List of scanf-like pointers to loaded data
+ * @returns Return code form executing sscanf
+ */
 int msgPipeReadf(MsgPipe msgp, const char* format, ...) {
     if(!msgp.good || !msgp.opened_read) return -1;
     
@@ -192,6 +314,16 @@ int msgPipeReadf(MsgPipe msgp, const char* format, ...) {
     return resultCode;
 }
 
+/**
+ * Write string to the pipe.
+ * 
+ * NOTE:
+ *  Message cannot be greater than maximum size set when creating the pipe.
+ *
+ * @param[in] msgp    : Pipe to write to
+ * @param[in] message : Message to be written
+ * @returns Return -1 on failure; 1 on success
+ */
 int msgPipeWrite(MsgPipe msgp, char* message) {
     if(!msgp.good || !msgp.opened_write) return -1;
     
@@ -206,6 +338,19 @@ int msgPipeWrite(MsgPipe msgp, char* message) {
     return 1;
 }
 
+/**
+ * Write formatted string to the pipe.
+ * Operates as printf do.
+ * 
+ * NOTE:
+ *  Message cannot be greater than maximum size set when creating the pipe.
+ *
+ * @param[in] msgp    : Pipe to write to
+ * 
+ * @param[in] format : Printf compatible format cstring
+ * @param[in] ...    : List of printf-like pointers to loaded data
+ * @returns Return -1 on failure; 1 on success
+ */
 int msgPipeWritef(MsgPipe msgp, const char* format, ...) {
     if(!msgp.good || !msgp.opened_write) return -1;
     
