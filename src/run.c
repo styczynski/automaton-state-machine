@@ -19,6 +19,17 @@
 
 #include "gcinit.h"
 
+/**
+ * Helper function for acceptSync.
+ * Recursively calculates accept() on the transition graph nodes.
+ * 
+ * @param [in] tg            : Transition graph
+ * @param [in] word          : Input word
+ * @param [in] word_len      : Input word size
+ * @param [in] current_state : Current state of the automaton
+ * @param [in] depth         : Position in word correlated with the current state
+ * @return Is the word accepted by automaton defined by transition graph?
+ */
 int acceptSync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth) {
     
     if(depth >= word_len) {
@@ -51,8 +62,15 @@ int acceptSync_rec(TransitionGraph tg, char* word, int word_len, int current_sta
     return 1;
 }
 
+/*
+ * Declaration of async accept helper
+ */
 static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload);
 
+/*
+ * Helper function for acceptAsync_rec
+ * Executes async accept on subprocesses and collects results
+ */
 static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload) {
     
     const int current_letter = (int)(word[depth]-'a');
@@ -125,6 +143,27 @@ static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* 
     return !is_existential_state;
 }
 
+/**
+ * Helper function for acceptAsync.
+ *
+ * Recursively calculates accept() on the transition graph nodes.
+ * This function uses multiprocess asynchronious approach or synchronized version depending on
+ * heuristic value workload.
+ *
+ * The workload is the number of nodes parsed by the algorithm so far.
+ * That is zeroed after fork.
+ *
+ * If the workload exceeds RUN_WORKLOAD_LIMIT then forking is preffered over synchronious code.
+ * 
+ * @param [in] tg            : Transition graph
+ * @param [in] word          : Input word
+ * @param [in] word_len      : Input word size
+ * @param [in] current_state : Current state of the automaton
+ * @param [in] depth         : Position in word correlated with the current state
+ * @param [in] workload      : Pointer to workload value 
+ *
+ * @return Is the word accepted by automaton defined by transition graph?
+ */
 static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload) {
     
     ++(*workload);
@@ -172,15 +211,43 @@ static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int cur
     }
 }
 
+/**
+ * Recursively calculates accept() on the transition graph nodes.
+ * This function uses synchronized single-process approach.
+ *
+ * @param [in] tg            : Transition graph
+ * @param [in] word          : Input word
+ * @return Is the word accepted by automaton defined by transition graph?
+ */
 int acceptSync(TransitionGraph tg, char* word) {
     return acceptSync_rec(tg, word, strlen(word), tg->q0, 0);
 }
 
+/**
+ * Recursively calculates accept() on the transition graph nodes.
+ * This function uses multiprocess asynchronious approach or synchronized version depending on heuristic values.
+ *
+ * @param [in] tg            : Transition graph
+ * @param [in] word          : Input word
+ * @return Is the word accepted by automaton defined by transition graph?
+ */
 int acceptAsync(TransitionGraph tg, char* word) {
     int workload = 1;
     return acceptAsync_rec(tg, word, strlen(word), tg->q0, 0, &workload);
 }
 
+/*
+ * Valid execution parameters:
+ *
+ *    run <stringified_MsgPipe_object> <word_to_parse> [-v]
+ *
+ *   -v flag is used to indicate verbosive logging
+ * 
+ *   The run command should not be ever executed by user.
+ *   It's internal worker of the server.
+ *
+ * Details of process communication is described further in file validator.c
+ */
 int main(int argc, char *argv[]) {
     
     GC_SETUP();
@@ -199,19 +266,23 @@ int main(int argc, char *argv[]) {
     
     char* word_to_parse = argv[2];
     
+    // Queue to write termination status
     MsgQueue runOutputQueue = msgQueueOpen("/FinAutomRunOutQueue", LINE_BUF_SIZE, MSG_QUEUE_SIZE);
 
+    // Capture pipe by which the server will send the graph representation
     MsgPipeID graphDataPipeID = msgPipeIDFromStr(argv[1]);
     MsgPipe graphDataPipe = msgPipeOpen(graphDataPipeID);
     
     log(RUN, "Ready.");
     
+    // Load transition graph description
     char* transitionGraphDesc = msgPipeRead(graphDataPipe);
     if(transitionGraphDesc == NULL) {
         fatal(RUN, "Received empty graph description.");
     }
     log(RUN, "Received graph description: %d bytes", strlen(transitionGraphDesc));
     
+    // Load transition graph from its description
     TransitionGraph tg = newTransitionGraph();
     char* transitionGraphDescIter = transitionGraphDesc;
     initTransitionGraph(tg);
@@ -222,6 +293,8 @@ int main(int argc, char *argv[]) {
 #endif
     
     log(RUN, "Received word to parse: %s", word_to_parse);
+    
+    // Run sync/async accept on the received word
     
 #if USE_ASYNC_ACCEPT == 1
     const int result = acceptAsync(tg, word_to_parse);
@@ -236,8 +309,11 @@ int main(int argc, char *argv[]) {
     }
     
     log(RUN, "Terminate.");
+    
+    // Commit results to the server
     msgQueueWritef(runOutputQueue, "run-terminate: %lld %d", (long long)getpid(), result);
     
+    // Close all means of communication
     msgQueueClose(&runOutputQueue);
     msgPipeClose(&graphDataPipe);
     
