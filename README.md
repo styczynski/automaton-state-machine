@@ -36,6 +36,10 @@ The document index:
 **Important note:**<br>
 **Note that *-v* switch can be used to enable verbosive debug mode!**
 
+**Server working with logging enabled:**
+
+![Screenshot of server logs with -v flag][screenshot]
+
 There is also a helper to execute testers and server at one time:
 
 ```bash
@@ -111,7 +115,7 @@ As mentioned in the upper list, the message queues (unix mq) are the base mean o
 
 All the comunicates that are sent through mqueues are described on the diagram below:
 
-PLACE_DIAGRAM_HERE
+![Communication diagram][diagram]
 
 The model of application is as follows:
 
@@ -476,3 +480,7 @@ Intuitively, *r* can be seen as a path in a run.
   * *!* is the unique terminate the server symbol.
   
   One can assume that the length of the supplied words will not exceed the constant *MAXLEN = 1000*.
+
+[screenshot]: https://gitlab.com/styczynski/finite-automaton/raw/master/static/screenshot1.png
+
+[diagram]: https://gitlab.com/styczynski/finite-automaton/raw/master/static/automaton_com_sch1.svg
