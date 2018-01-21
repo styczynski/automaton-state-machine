@@ -29,20 +29,31 @@ struct TesterSlot {
     int acc_count;
 };
 
-int main(void) {
+int verboseMode = 0;
+
+int main(int argc, char *argv[]) {
     
     GC_SETUP();
     
+    log_set(0);
+    for(int i=1;i<argc;++i) {
+        if(strcmp(argv[i], "-v") == 0) {
+            log_set(1);
+            verboseMode = 1;
+        }
+    }
+    
     int server_status_code = 0;
     
-    
-    char* transitionGraphDesc = loadTransitionGraphDesc(stdin);
+    char* transitionGraphDesc = loadTransitionGraphDescFromStdin();
 
-    MsgQueue reportQueue = msgQueueOpen("/FinAutomReportQueue", 50, 10);
-    MsgQueue runOutputQueue = msgQueueOpenNonBlocking("/FinAutomRunOutQueue", 50, 10);
-    MsgQueue taskQueue = msgQueueOpen("/FinAutomTaskQueue", 30, 10);
+    MsgQueue reportQueue = msgQueueOpen("/FinAutomReportQueue", LINE_BUF_SIZE, MSG_QUEUE_SIZE);
+    MsgQueue runOutputQueue = msgQueueOpenNonBlocking("/FinAutomRunOutQueue", LINE_BUF_SIZE, MSG_QUEUE_SIZE);
+    MsgQueue registerQueue = msgQueueOpenNonBlocking("/FinAutomRegisterQueue", LINE_BUF_SIZE, MSG_QUEUE_SIZE);
     
     char buffer[LINE_BUF_SIZE];
+    char buffer2[LINE_BUF_SIZE];
+    
     long long buffer_pid;
     int buffer_result;
     int loc_id;
@@ -60,13 +71,52 @@ int main(void) {
     int snt_count = 0;
     int acc_count = 0;
     
+    int throttled_mode = 0;
+    
     while(1) {
+        char* register_msg;
+        do {
+            register_msg = msgQueueRead(registerQueue);
+            if(register_msg != NULL) {
+                
+                if(sscanf(register_msg, "register_tester: %lld %s", &buffer_pid, buffer2)) {
+                    log_ok(SERVER, "Registered new tester with pid %lld for output queue: %s", buffer_pid, buffer2);
+                        
+                    pid_t tester_pid = (pid_t) buffer_pid;
+                        
+                    TesterSlot ts_new_val;
+                    ts_new_val.pid = tester_pid;
+                    ts_new_val.rcd_count = 0;
+                    ts_new_val.acc_count = 0;
+                    ts_new_val.testerInputQueue = msgQueueOpen(buffer2, LINE_BUF_SIZE, MSG_QUEUE_SIZE);
+                        
+                    strcpy((char*) &(ts_new_val.queueName), buffer);
+                    HashMapSetV(&testerSlots, pid_t, TesterSlot, tester_pid, ts_new_val);
+                }
+            }
+        } while(register_msg != NULL);
+        
+        
+        if(!throttled_mode && activeTasksCount > SERVER_PROCESS_LIMIT) {
+            throttled_mode = 1;
+            msgQueueMakeBlocking(&runOutputQueue, 1);
+            msgQueueMakeBlocking(&reportQueue,    0);
+            log_warn(SERVER, "SERVER_PROCESS_LIMIT: Throttle (limit process) LOCK");
+        }
+        
         char* run_term_msg = msgQueueRead(runOutputQueue);
         
         if(run_term_msg != NULL) {
             if(sscanf(run_term_msg, "run-terminate: %lld %d", &buffer_pid, &buffer_result)) {
                 --activeTasksCount;
                 log(SERVER, "Run terminated: %lld for result: %d", buffer_pid, buffer_result);
+                
+                if(throttled_mode && activeTasksCount < SERVER_PROCESS_LIMIT) {
+                    log_warn(SERVER, "SERVER_PROCESS_LIMIT: Throttle (limit process) UNLOCK");
+                    msgQueueMakeBlocking(&runOutputQueue, 0);
+                    msgQueueMakeBlocking(&reportQueue,    1);
+                    throttled_mode = 0;
+                }
                 
                 pid_t pid = (pid_t) buffer_pid;
                 RunSlot* rs = HashMapGetV(&runSlots, pid_t, RunSlot, pid);
@@ -94,7 +144,7 @@ int main(void) {
                             ++acc_count;
                             ++(ts->acc_count);
                         }
-                        log_ok(SERVER, "Sent answer to the tester with pid=%d", ts->pid);
+                        log_ok(SERVER, "Sent answer to the tester with pid=%d (answer=%d, loc_id=%d, runpid=%d)", ts->pid, buffer_result, rs->loc_id, pid);
                         msgQueueWritef(ts->testerInputQueue, "%d answer: %d", rs->loc_id, buffer_result);
                     }
                     
@@ -124,7 +174,7 @@ int main(void) {
             break;
         }
         
-        if(shouldTerminate && children_status == 0 && run_term_msg == NULL) {
+        if(activeTasksCount <= 0 && shouldTerminate && children_status == 0 && run_term_msg == NULL) {
             forceTermination = 1;
         }
         
@@ -132,64 +182,73 @@ int main(void) {
             
             char* msg = msgQueueRead(reportQueue);
             
-            if(strcmp(msg, "exit") == 0) {
-                log_warn(SERVER, "Server received termination command and will close. Be aware.");
-                shouldTerminate = 1;
-                
-                log_warn(SERVER, "Wait for subprocess termination... WAIT");
-                processWaitForAll();
-                log_warn(SERVER, "Wait for subprocess termination... END");
-                
-            } else if(sscanf(msg, "parse: %lld %d %[^NULL]", &buffer_pid, &loc_id, buffer)) {
-                ++rcd_count;
-                
-                log(SERVER, "Received word {%s}", buffer);
-                pid_t pid;
-         
-                TesterSlot* ts = HashMapGetV(&testerSlots, pid_t, TesterSlot, buffer_pid);
-                if(ts == NULL) {
-                    log_err(SERVER, "Missing tester slot info for pid=%d", buffer_pid);
-                } else {
+            if(msg != NULL) {
+                buffer[0] = '\0';
+                if(strcmp(msg, "exit") == 0) {
+                    log_warn(SERVER, "Server received termination command and will close. Be aware.");
+                    shouldTerminate = 1;
+                    
+                    //log_warn(SERVER, "Wait for subprocess termination... WAIT");
+                    //processWaitForAll();
+                    //log_warn(SERVER, "Wait for subprocess termination... END");
+                    
+                } else if(sscanf(msg, "parse: %lld %s %d %[^NULL]", &buffer_pid, buffer2, &loc_id, buffer)) {
+                    ++rcd_count;
+                    
+                    log(SERVER, "Received word {%s} (loc_id=%d)", buffer, loc_id);
+                    
+                    TesterSlot* ts = HashMapGetV(&testerSlots, pid_t, TesterSlot, buffer_pid);
+                    if(ts == NULL) {
+                        log_ok(SERVER, "Registered new tester with pid %lld for output queue: %s", buffer_pid, buffer2);
+                        
+                        pid_t tester_pid = (pid_t) buffer_pid;
+                        
+                        TesterSlot ts_new_val;
+                        ts_new_val.pid = tester_pid;
+                        ts_new_val.rcd_count = 0;
+                        ts_new_val.acc_count = 0;
+                        ts_new_val.testerInputQueue = msgQueueOpen(buffer2, LINE_BUF_SIZE, MSG_QUEUE_SIZE);
+                        
+                        strcpy((char*) &(ts_new_val.queueName), buffer);
+                        HashMapSetV(&testerSlots, pid_t, TesterSlot, tester_pid, ts_new_val);
+                        ts = HashMapGetV(&testerSlots, pid_t, TesterSlot, buffer_pid);
+                    }
+                    
+                    
                     ++(ts->rcd_count);
-                }
-         
-                RunSlot rs;
-                rs.loc_id = loc_id;
-                rs.testerSourcePid = (pid_t) buffer_pid;
-                rs.graphDataPipeID = msgPipeCreate(100);
-                rs.graphDataPipe = msgPipeOpen(rs.graphDataPipeID);
-                
-                msgPipeWrite(rs.graphDataPipe, transitionGraphDesc);
+             
+                    RunSlot rs;
+                    rs.loc_id = loc_id;
+                    rs.testerSourcePid = (pid_t) buffer_pid;
+                    rs.graphDataPipeID = msgPipeCreate(100);
+                    rs.graphDataPipe = msgPipeOpen(rs.graphDataPipeID);
+                    
+                    msgPipeWrite(rs.graphDataPipe, transitionGraphDesc);
 
-                char graphDataPipeIDStr[100];
-                msgPipeIDToStr(rs.graphDataPipeID, graphDataPipeIDStr);
-                
-                msgQueueWritef(taskQueue, "parse: %s", buffer);
-                
-                ++activeTasksCount;
-                if(!processExec(&pid, "./run", "run", graphDataPipeIDStr, NULL)) {
-                    log_err(SERVER, "Run fork failure");
-                    exit(-1);
+                    char graphDataPipeIDStr[100];
+                    msgPipeIDToStr(rs.graphDataPipeID, graphDataPipeIDStr);
+                    
+                    pid_t pid;
+                    
+                    ++activeTasksCount;
+                    if(verboseMode) {
+                        if(!processExec(&pid, "./run", "run", graphDataPipeIDStr, buffer, "-v", NULL)) {
+                            log_err(SERVER, "Run fork failure");
+                            exit(-1);
+                        }
+                    } else {
+                        if(!processExec(&pid, "./run", "run", graphDataPipeIDStr, buffer, NULL)) {
+                            log_err(SERVER, "Run fork failure");
+                            exit(-1);
+                        }
+                    }
+                    
+                    log_ok(SERVER, "Forked run %d for word {%s} (loc_id=%d)", pid, buffer, loc_id);
+                    
+                    rs.pid = pid;
+                    HashMapSetV(&runSlots, pid_t, RunSlot, pid, rs);
+                    
                 }
-                
-                rs.pid = pid;
-                HashMapSetV(&runSlots, pid_t, RunSlot, pid, rs);
-                
-            } else if(sscanf(msg, "tester-register: %lld %[^NULL]", &buffer_pid, buffer)) {
-               
-               log_ok(SERVER, "Registered new tester with pid %lld for output queue: %s", buffer_pid, buffer);
-               
-               pid_t pid = (pid_t) buffer_pid;
-               
-               TesterSlot ts;
-               ts.pid = pid;
-               ts.rcd_count = 0;
-               ts.acc_count = 0;
-               ts.testerInputQueue = msgQueueOpen(buffer, 50, 10);
-               
-               strcpy((char*) &(ts.queueName), buffer);
-               HashMapSetV(&testerSlots, pid_t, TesterSlot, pid, ts);
-               
             }
         }
         
@@ -231,7 +290,7 @@ int main(void) {
     
     msgQueueRemove(&reportQueue);
     msgQueueRemove(&runOutputQueue);
-    msgQueueRemove(&taskQueue);
+    msgQueueRemove(&registerQueue);
     
     FREE(transitionGraphDesc);
     

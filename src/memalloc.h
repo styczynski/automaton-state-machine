@@ -84,7 +84,7 @@
 ( (STRUCT*) ReallocateMemoryBlockArray((PTR), (LEN), sizeof(STRUCT)) )
 
 /**
-* @def MREALLOCATE_BLOCKS(BLOCK_SIZE, LEN)
+* @def MREALLOCATE_BLOCKS(BLOCK_SIZE, LEN, PTR)
 *
 * Macro giving value of pointer to the reallocated array of size @p LEN
 * of blocks of size @p SIZE bytes

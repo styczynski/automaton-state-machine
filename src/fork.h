@@ -10,20 +10,10 @@
 #include <sys/wait.h>
 #include "msg_pipe.h"
 
-static int _trigForkErr_ = 0;
-
 int processFork(pid_t* pid) {
-    
-    static int cnt = 0;
-    ++cnt;
-    if(cnt > 2 && _trigForkErr_) {
-        syserr("Failed due to fork() error");
-        return -1;
-    };
-    
+   
     switch (*pid = fork()) {
         case -1:
-            syserr("Failed due to fork() error");
             return -1;
         case 0:
             return 1;

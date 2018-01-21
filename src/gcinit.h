@@ -12,6 +12,7 @@
 
 #include "hashmap.h"
 #include "fork.h"
+#include "onexit.h"
 #include "syslog.h"
 
 #include <stdio.h>
@@ -114,10 +115,8 @@ static inline void __gc_exit_hook__() {
 
 static void __gc_init__() {
     
-    if(atexit(__gc_exit_hook__) != 0) {
-        syserr("Could not initialize GC");
-        return;
-    }
+    ExitHandlerSetup();
+    ExitHandlerOverrideGC(__gc_exit_hook__);
     
     __gc_mem_tree__funct = __gc_mem_tree__;
 }

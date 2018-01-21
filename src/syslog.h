@@ -39,17 +39,18 @@
 #define log_ok(LABEL, ...)   
 #define log_warn(LABEL, ...) 
 #define log_err(LABEL, ...)  
+#define log_set(STATE)       
 
 #if SYS_LOG_HANDLE_FATALS == 1
 #define fatal(LABEL, ...)     fatal_formated(0, 1, #LABEL, stderr, __func__, __VA_ARGS__)
 #define log_fatal(LABEL, ...) fatal_formated(0, 1, #LABEL, stderr, __func__, __VA_ARGS__)
-#define syserr(...)           fatal_formated(1, 0, "SYSERR", stderr, __func__, __VA_ARGS__)
-#define syserrv(...)          fatal_formated(0, 0, "SYSERR", stderr, __func__, __VA_ARGS__)
+#define syserr(...)           fatal_formated(1, 1, "SYSERR", stderr, __func__, __VA_ARGS__)
+#define syserrv(...)          fatal_formated(0, 1, "SYSERR", stderr, __func__, __VA_ARGS__)
 #else // SYS_LOG_HANDLE_FATALS == 1
 #define log_fatal(LABEL, ...) 
 #define fatal(LABEL, ...)     
-#define syserr(...)           fatal_formated(1, 0, "SYSERR", stderr, __func__, __VA_ARGS__)
-#define syserrv(...)          fatal_formated(0, 0, "SYSERR", stderr, __func__, __VA_ARGS__)
+#define syserr(...)           fatal_formated(1, 1, "SYSERR", stderr, __func__, __VA_ARGS__)
+#define syserrv(...)          fatal_formated(0, 1, "SYSERR", stderr, __func__, __VA_ARGS__)
 #endif // SYS_LOG_HANDLE_FATALS == 1
 
 #define log_formated(...)     
@@ -71,11 +72,27 @@ void log_formated(int loglevel, const int print_errno, const char* label, FILE* 
 #define log_err(LABEL, ...)   log_formated(4, 0, #LABEL, NULL, __func__, __VA_ARGS__)
 #define log_fatal(LABEL, ...) log_formated(5, 0, #LABEL, NULL, __func__, __VA_ARGS__)
 #define fatal(LABEL, ...)     log_formated(5, 0, #LABEL, NULL, __func__, __VA_ARGS__)
-#define syserr(...)           log_formated(4, 1, "SYSERR", NULL, __func__, __VA_ARGS__)
-#define syserrv(...)          log_formated(4, 0, "SYSERR", NULL, __func__, __VA_ARGS__)
+#define syserr(...)           log_formated(5, 1, "SYSERR", NULL, __func__, __VA_ARGS__)
+#define syserrv(...)          log_formated(5, 0, "SYSERR", NULL, __func__, __VA_ARGS__)
+#define log_set(STATE)        ((STATE)?(_log_on_()):(_log_off_()))
 
+static int _runtime_log_status_ = 1;
+
+int _log_on_() {
+    _runtime_log_status_ = 1;
+    return 1;
+}
+
+int _log_off_() {
+    _runtime_log_status_ = 0;
+    return 1;
+}
 
 void log_formated(int loglevel, const int print_errno, const char* label, FILE* out, const char* function_name, const char* format, ...) {
+    if(!_runtime_log_status_ && loglevel < 5) {
+        return;
+    }
+    
     va_list args;
     va_start(args, format);
     

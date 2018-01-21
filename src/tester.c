@@ -11,17 +11,28 @@
 
 #include "gcinit.h"
 
-int main(void) {
+int main(int argc, char *argv[]) {
     
     GC_SETUP();
+    
+    log_set(0);
+    for(int i=1;i<argc;++i) {
+        if(strcmp(argv[i], "-v") == 0) {
+            log_set(1);
+        }
+    }
     
     char* inputQueueName = MALLOCATE_ARRAY(char, 40);
     sprintf(inputQueueName, "/FinAutomTesterInQ%d", getpid());
     
-    MsgQueue reportQueue = msgQueueOpen("/FinAutomReportQueue", 50, 10);
-    MsgQueue inputQueue = msgQueueOpenNonBlocking(inputQueueName, 50, 10);
+    MsgQueue registerQueue = msgQueueOpen("/FinAutomRegisterQueue", LINE_BUF_SIZE, MSG_QUEUE_SIZE);
+    msgQueueWritef(registerQueue, "register_tester: %lld %s", (long long)getpid(), inputQueueName);
+    msgQueueClose(&registerQueue);
     
-    msgQueueWritef(reportQueue, "tester-register: %lld %s", (long long)getpid(), inputQueueName);
+    MsgQueue reportQueue = msgQueueOpen("/FinAutomReportQueue", LINE_BUF_SIZE, MSG_QUEUE_SIZE);
+    MsgQueue inputQueue = msgQueueOpenNonBlocking(inputQueueName, LINE_BUF_SIZE, MSG_QUEUE_SIZE);
+    
+    //msgQueueWritef(reportQueue, "tester-register: %lld %s", (long long)getpid(), inputQueueName);
     
     char* line_buf = MALLOCATE_ARRAY(char, LINE_BUF_SIZE);
     size_t line_buf_size = LINE_BUF_SIZE;
@@ -45,20 +56,20 @@ int main(void) {
             ++loc_id;
             
             int getline_size = getline(&line_buf, &line_buf_size, stdin);
-            if(getline_size > 0) {
+            if(getline_size >= 0) {
                 if(strcmp(line_buf, "!") == 0) {
                     log_warn(TESTER, "Sent termination request");
                     msgQueueWrite(reportQueue, "exit");
                     read_input = 0;
                 } else {
-                    log(TESTER, "Sent work for verification: %s", line_buf);
+                    log(TESTER, "Sent work for verification: %s (loc_id=%d)", line_buf, loc_id);
                     
                     char* saved_word = MALLOCATE_ARRAY(char, strlen(line_buf)+3);
                     strcpy(saved_word, line_buf);
                     
                     ArrayListSetValueAt(&results, loc_id, saved_word);
                     
-                    msgQueueWritef(reportQueue, "parse: %lld %d %s", (long long)getpid(), loc_id, line_buf);
+                    msgQueueWritef(reportQueue, "parse: %lld %s %d %s", (long long)getpid(), inputQueueName, loc_id, line_buf);
                     ++req_count;
                 }
             } else if(getline_size == -1) {
@@ -79,7 +90,7 @@ int main(void) {
                             ++acc_count;
                         }
                         ++ans_count;
-                        log(TESTER, "Got answer from server: %s %d", saved_word, ans);
+                        log(TESTER, "Got answer from server: %s %d (loc_id=%d)", saved_word, ans, loc_id);
                         
                         FREE(saved_word);
                         ArrayListSetValueAt(&results, loc_id, NULL);

@@ -53,7 +53,7 @@
 *   ArrayList l;
 *   LOOP_ARRAY_LIST(&l, i) {
 *         // Capture ArrayListData from iterator:
-*         ArrayListData element = ArrayListsGetValue(i);
+*         ArrayListData element = ArrayListGetValue(i);
 *
 *         // Convert the ArrayListData to the int pointer:
 *         int element_value = *((*int) element_value);

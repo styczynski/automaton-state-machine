@@ -212,4 +212,21 @@ int msgQueueClose(MsgQueue* msgq) {
     return msgQueueCloseEx(msgq, 0);
 }
 
+int msgQueueMakeBlocking(MsgQueue* msgq, int will_block) {
+    if(msgq->name == NULL) return -1;
+    
+    log_warn(IKSDE, "make blocking queue -> %s, %d, %d", msgq->name, msgq->mq_a.mq_maxmsg, msgq->mq_a.mq_msgsize);
+    
+    char* q_name = MALLOCATE_ARRAY(char, MAX_MSG_QUEUE_NAME_SIZE);
+    q_name[0] = '\0';
+    strcpy(q_name, msgq->name);
+    
+    int max_msg = msgq->mq_a.mq_maxmsg;
+    int msg_size = msgq->mq_a.mq_msgsize;
+    
+    msgQueueClose(msgq);
+    *msgq = msgQueueOpenEx(q_name, msg_size, max_msg, will_block);
+    return 1;
+}
+
 #endif // __MSG_QUEUE_H__

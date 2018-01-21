@@ -52,14 +52,27 @@ int msgPipeIDToStr(MsgPipeID msgpid, char* out) {
         out[0] = '\0';
         return -1;
     }
-    sprintf(out, "p%d@%d[%d]", msgpid.pipe_desc[0], msgpid.pipe_desc[1], msgpid.buff_size );
+    sprintf(out, "p%d@%d[%d]", msgpid.pipe_desc[0], msgpid.pipe_desc[1], msgpid.buff_size);
     return 1;
 }
 
+int msgPipeIsGoodID(MsgPipeID msgpid) {
+    return msgpid.good;
+}
+
 MsgPipeID msgPipeIDFromStr(char* in) {
+    if(in == NULL) {
+        syserrv("msgPipeIDFromStr() failed string is NULL");
+    }
+    
     MsgPipeID msgpid;
     msgpid.good = 1;
+    msgpid.pipe_desc[0] = -1;
+    msgpid.pipe_desc[1] = -1;
+    msgpid.buff_size = -1;
+    
     if(!sscanf(in, "p%d@%d[%d]", &msgpid.pipe_desc[0], &msgpid.pipe_desc[1], &msgpid.buff_size )) {
+        syserrv("msgPipeIDFromStr() failed string {%s} does not match valid pipe schema!", in);
         msgpid.good = 0;
     }
     return msgpid;
@@ -90,7 +103,6 @@ int msgPipeCloseRead(MsgPipe* msgp) {
     
     if (close(msgp->pipe_desc[0]) == -1) {
         syserr("msgPipeCloseRead failed due to close(desc=%d) error", msgp->pipe_desc[0]);
-        
         return -1;
     }
     

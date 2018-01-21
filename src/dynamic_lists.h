@@ -27,7 +27,7 @@
 *
 * @code
 *   LOOP_LIST(List_object, i) {
-*         ListData element = ListsGetValue(i);
+*         ListData element = ListGetValue(i);
 *         printf("void_ptr = %p\n", i);
 *    }
 * @endcode
