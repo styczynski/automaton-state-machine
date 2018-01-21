@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
             int input_desc = open(server_input_file, O_RDONLY);
             redirect(input_desc, 0);
            
-            int output_desc = open(server_output_file, O_WRONLY | O_CREAT | O_TRUNC);
+            int output_desc = open(server_output_file, O_WRONLY | O_CREAT);
             redirect(output_desc, 1);
             
             char* vFlag = (verboseMode)?"-v":NULL;
@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
                 int input_desc = open(tester_input_file[i], O_RDONLY);
                 redirect(input_desc, 0);
                 
-                int output_desc = open(tester_output_file[i], O_RDWR | O_CREAT | O_TRUNC, 0644);
+                int output_desc = open(tester_output_file[i], O_RDWR | O_CREAT);
                 redirect(output_desc, 1);
                 
                 char* vFlag = (verboseMode)?"-v":NULL;
