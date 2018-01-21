@@ -13,6 +13,7 @@ The document index:
      * Inter-process worker communication
      * Errors
      * Memory leaks
+     * Assumptions
  * Abstract
    - Definitions
    - Formal model
@@ -260,6 +261,21 @@ That's why I wrote simple GC that uses HashMap to register all allocs/frees and 
 The GC registers only allocations done via `memalloc.h` functions and macros.
 
 
+#### Assumptions
+
+The following assumptions were done during implementation:
+
+* Mamium line length of any input is `LINE_BUF_SIZE`
+* Maximum file input length (of graph representation) is `FILE_BUF_SIZE` and it fits into memory
+* Maximum number of states is `MAX_Q`
+* Letters are letter of ascii code `{'a', 'b', ..., 'a'+MAX_Q-1}`
+
+This values as others settings can be changed in `automaton_config.h`.
+
+The detailed code explenation is done in each file.<br>
+Please refer to `validator.c`, `tester.c` and `run.c`
+to obtain more implementation detailed info.
+
 ## Abstract
 
 ### Definitions
@@ -483,4 +499,4 @@ Intuitively, *r* can be seen as a path in a run.
 
 [screenshot]: https://gitlab.com/styczynski/finite-automaton/raw/master/static/screenshot1.png
 
-[diagram]: https://gitlab.com/styczynski/finite-automaton/raw/master/static/automaton_com_sch1.svg
+[diagram]: https://gitlab.com/styczynski/finite-automaton/raw/master/static/automaton_com_sch1.png
