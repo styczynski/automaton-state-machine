@@ -1,3 +1,30 @@
+/**
+ * Implementation of Automaton for studies on Warsaw Univeristy
+ *
+ * [Process tester]
+ *   Queries in a form of words are sent by programs tester.
+ *
+ *   A program tester in an infinite loop read words form the standard input stream and forwards them to the server.
+ *   Every word is written in a single line and the line feed symbol \n does not belong to any of the words.
+ *   When the tester receives an answer from the server,
+ *   he writes on the standard output stream the word he resecived answer for and the decision A if the word
+ *   was accepted and N if not.
+ *   The tester terminates when the server terminates of when tester receives the EOF symbol,
+ *   i.e. the end of file symbol. When the tester terminates it sends no new queries,
+ *   waits for the remaining answers from the server, and writes on the standard output a report.
+ * 
+ *   A Report of a tester consist of three lines
+ *
+ *     Snt: x\n
+ *     Rcd: y\n
+ *     Acc: z\n
+ *
+ * where x,y,z respectively are the numbers of: queries, received answers, and accepted words sent by this process.
+ *
+ * @author Piotr Styczyński <piotrsty1@gmail.com>
+ * @copyright MIT
+ * @date 2018-01-21
+ */
 #include <stdio.h>
 #include <string.h>
 #include "getline.h"

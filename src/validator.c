@@ -1,3 +1,36 @@
+/**
+ * Implementation of Automaton for studies on Warsaw Univeristy
+ *
+ * [Proces validator]
+ *   The validator is a server accepting, or rejecting, words. A word is accepted if it is accepted by
+ *   specified automaton. The program validator begins by reading from the standard input
+ *   the description of the automaton and then in an infinite loop waits for the words to verify.
+ *
+ *   When a word is received he runs the program run which validates the word and vaidator waits
+ *   for an another word or response from the program run. Afer receiving a message from one of the
+ *   run processes validator forwords the message to the adequate tester.
+ *
+ *   When a tester send an unique stop word ! the server stops , i.e. he does not accept new words,
+ *   collects the responses from the run processes, forwards the answers, writes a report on stdout, and, finally, terminates.
+ *
+ *   The validator report consist in three lines describing the numbers of received queries, sent answers and accepted words:
+ *
+ *     Rcd: x\n
+ *     Snt: y\n
+ *     Acc: z\n
+ * 
+ * where x,y,z respectively are the numbers of received queries, sent answers and accepted words; and a sequence of summaries of the interactions with the programs tester from which validator received at least one query. A summary for a tester with PID pid consists in:
+ *
+ *     [PID: pid\n
+ *     Rcd: y\n
+ *     Acc: z\n]
+ *
+ * where pid,y,z respectively are: the process' pid, the number of messages received from this process and the number of acceped words sent by this process.
+ *
+ * @author Piotr Styczyński <piotrsty1@gmail.com>
+ * @copyright MIT
+ * @date 2018-01-21
+ */
 #include <stdio.h>
 #include <string.h>
 #include "getline.h"

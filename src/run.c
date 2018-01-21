@@ -1,3 +1,14 @@
+/**
+ * Implementation of Automaton for studies on Warsaw Univeristy
+ *
+ * [Process run]
+ *   Program run receives from validator a word to verify and the description of the automaton.
+ *   Then he begins the verification. When the verification stops, the process sends a message to the server and terminates.
+ *
+ * @author Piotr Styczyński <piotrsty1@gmail.com>
+ * @copyright MIT
+ * @date 2018-01-21
+ */
 #include <stdio.h>
 #include "getline.h"
 #include "automaton.h"
@@ -30,7 +41,8 @@ int acceptSync_rec(TransitionGraph tg, char* word, int word_len, int current_sta
         }
         return 0;
     }
-    
+   
+    // Universal state
     for(int i=0;i<branch_count;++i) {
         if(!acceptSync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1)) {
             return 0;
@@ -126,6 +138,8 @@ static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int cur
 #endif
     
     if(*workload < RUN_WORKLOAD_LIMIT) {
+        // Sync version
+        
         const int current_letter = (int)(word[depth] - 'a');
         const int branch_count = tg->size[current_state][current_letter];
         if(current_state >= tg->U) {
@@ -137,6 +151,8 @@ static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int cur
             }
             return 0;
         }
+        
+        // Universal state
         for(int i=0;i<branch_count;++i) {
             if(!acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1, workload)) {
                 return 0;
@@ -144,6 +160,8 @@ static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int cur
         }
         return 1;
     } else {
+        // Async version
+        
         if(current_state >= tg->U) {
             // Existential state
             return acceptAsync_node(1, tg, word, word_len, current_state, depth, workload);
