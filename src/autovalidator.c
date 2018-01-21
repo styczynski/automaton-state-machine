@@ -153,10 +153,10 @@ int main(int argc, char *argv[]) {
         }
         case 0: {
             
-            int input_desc = open(server_input_file, O_RDONLY);
+            int input_desc = open(server_input_file, O_RDONLY, S_IRWXU | S_IRWXG | S_IRWXO);
             redirect(server_input_file, input_desc, 0);
            
-            int output_desc = open(server_output_file, O_WRONLY | O_CREAT);
+            int output_desc = open(server_output_file, O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO );
             redirect(server_output_file, output_desc, 1);
             
             char* vFlag = (verboseMode)?"-v":NULL;
@@ -175,10 +175,10 @@ int main(int argc, char *argv[]) {
             }
             case 0: {
                 
-                int input_desc = open(tester_input_file[i], O_RDONLY);
+                int input_desc = open(tester_input_file[i], O_RDONLY, S_IRWXU | S_IRWXG | S_IRWXO);
                 redirect(tester_input_file[i], input_desc, 0);
                 
-                int output_desc = open(tester_output_file[i], O_RDWR | O_CREAT);
+                int output_desc = open(tester_output_file[i], O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
                 redirect(tester_output_file[i], output_desc, 1);
                 
                 char* vFlag = (verboseMode)?"-v":NULL;
