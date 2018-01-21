@@ -292,13 +292,13 @@ int acceptSync_rec(TransitionGraph tg, char* word, int word_len, int current_sta
 /*
  * Declaration of async accept helper
  */
-static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload);
+static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload, int parent_fork_count);
 
 /*
  * Helper function for acceptAsync_rec
  * Executes async accept on subprocesses and collects results
  */
-static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload) {
+static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload, int parent_fork_count) {
     
     const int current_letter = (int)(word[depth]-'a');
     const int branch_count = tg->size[current_state][current_letter];
@@ -325,7 +325,7 @@ static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* 
             
             int new_workload = 0;
             
-            if(acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1, &new_workload)) {
+            if(acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1, &new_workload, parent_fork_count+branch_count-1)) {
                 msgPipeWrite(parentPipe, "A");
                 msgPipeClose(&parentPipe);
             } else {
@@ -339,7 +339,7 @@ static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* 
         }
     }
     
-    int originValue = acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][0], depth+1, workload);
+    int originValue = acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][0], depth+1, workload, parent_fork_count+branch_count-1);
     
     if(processWaitForAll() == -1) {
         log_err(RUN, "Child exited abnormally, so terminate.");
@@ -391,7 +391,7 @@ static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* 
  *
  * @return Is the word accepted by automaton defined by transition graph?
  */
-static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload) {
+static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int current_state, int depth, int* workload, int parent_fork_count) {
     
     ++(*workload);
     
@@ -403,7 +403,7 @@ static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int cur
     log_warn(RUN, "At state %d in word {%s} at pos {%d/%d}", current_state, word, depth, word_len);
 #endif
     
-    if(*workload < RUN_WORKLOAD_LIMIT) {
+    if(*workload < RUN_WORKLOAD_LIMIT || parent_fork_count > RUN_FORK_LIMIT) {
         // Sync version
         
         const int current_letter = (int)(word[depth] - 'a');
@@ -411,7 +411,7 @@ static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int cur
         if(current_state >= tg->U) {
             // Existential state
             for(int i=0;i<branch_count;++i) {
-                if(acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1, workload)) {
+                if(acceptSync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1)) {
                     return 1;
                 }
             }
@@ -420,7 +420,7 @@ static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int cur
         
         // Universal state
         for(int i=0;i<branch_count;++i) {
-            if(!acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1, workload)) {
+            if(!acceptSync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1)) {
                 return 0;
             }
         }
@@ -430,11 +430,11 @@ static int acceptAsync_rec(TransitionGraph tg, char* word, int word_len, int cur
         
         if(current_state >= tg->U) {
             // Existential state
-            return acceptAsync_node(1, tg, word, word_len, current_state, depth, workload);
+            return acceptAsync_node(1, tg, word, word_len, current_state, depth, workload, parent_fork_count);
         }
         
         // Universal state
-        return acceptAsync_node(0, tg, word, word_len, current_state, depth, workload);
+        return acceptAsync_node(0, tg, word, word_len, current_state, depth, workload, parent_fork_count);
     }
 }
 
@@ -460,7 +460,7 @@ int acceptSync(TransitionGraph tg, char* word) {
  */
 int acceptAsync(TransitionGraph tg, char* word) {
     int workload = 1;
-    return acceptAsync_rec(tg, word, strlen(word), tg->q0, 0, &workload);
+    return acceptAsync_rec(tg, word, strlen(word), tg->q0, 0, &workload, 0);
 }
 
 #endif // __AUTOMATON_H__

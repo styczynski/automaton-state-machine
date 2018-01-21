@@ -18,6 +18,9 @@
 #include <sys/wait.h>
 #include "msg_pipe.h"
 
+
+static int crashThatFork = 0;
+
 /**
  * Fork process capturing its pid.
  *
@@ -30,6 +33,12 @@
  * @returns Returns integer code
  */
 int processFork(pid_t* pid) {
+   
+    static int dummyCounter = 0;
+    ++dummyCounter;
+    if(crashThatFork) {
+        syserr("CRASH! BADUM!");
+    }
    
     switch (*pid = fork()) {
         case -1:

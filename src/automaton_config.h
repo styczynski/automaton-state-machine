@@ -13,13 +13,31 @@
 #define __AUTOMATON_CONF_H__
 
 /**
+ * @def SERVER_TERMINATE_ON_RUN_FAILURE
+ *    If this macro value is equal to 1 then server will imidiatelly terminate itself
+ *    when any of the run processes will return non-zero exit code or terminate abnormally.
+ *
+ *    In all other cases the server will display warning about wroker crash,
+ *    but it will conitnue normal work.
+ */
+#define SERVER_TERMINATE_ON_RUN_FAILURE   0
+
+/**
  * @def RUN_WORKLOAD_LIMIT
  *    Limit of the workload per wroker process in execution of async accept.
  *
  *    This means that fork's will occur only after parsing at least RUN_WORKLOAD_LIMIT nodes.
  *    Higher value means less worker processes.
  */
-#define RUN_WORKLOAD_LIMIT      20
+#define RUN_WORKLOAD_LIMIT      0
+
+/**
+ * @def RUN_FORK_LIMIT
+ *    Limit of the self-forks done per worker proccess.
+ *
+ *    It approximated upper limit of self-forks done by worker.
+ */
+#define RUN_FORK_LIMIT          22
 
 /**
  * @def SERVER_PROCESS_LIMIT
@@ -31,7 +49,7 @@
  *
  *    Use this setting to limit estimated maximum amount of fork's done by server.
  */
-#define SERVER_PROCESS_LIMIT    30
+#define SERVER_PROCESS_LIMIT    20
 
 /**
  * @def MAX_Q

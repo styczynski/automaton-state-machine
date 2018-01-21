@@ -276,6 +276,8 @@ int main(int argc, char *argv[]) {
             }
         }
         
+        // Server SHOULD terminate on abnormal worker termination
+
         /*
          * Wait for worker termination events
          * This operation is NON BLOCKING
@@ -288,6 +290,7 @@ int main(int argc, char *argv[]) {
              *   -> Some worker terminated abnormally via other method than exit(status) (signal etc.)
              *   -> Some worker has returned non-zero exit code
              */
+#if SERVER_TERMINATE_ON_RUN_FAILURE == 1
             log_err(SERVER, "Server detected crash in some RUN subprocess so will terminate.");
             log_warn(SERVER, "All current jobs were finished so execute terminate request.");
 
@@ -301,10 +304,15 @@ int main(int argc, char *argv[]) {
                 TesterSlot* ts = (TesterSlot*) HashMapGetValue(i);
                 msgQueueWritef(ts->testerInputQueue, "exit");
             }
-            
             server_status_code = -1;
             break;
+#else
+            log_err(SERVER, "Server detected crash in some RUN subprocess but will NOT terminate.");
+            --activeTasksCount;
+#endif
         }
+        
+        
         
         /*
          * Enter force termination mode (the server will shut down in the next step).

@@ -35,6 +35,8 @@ int main(int argc, char *argv[]) {
     
     GC_SETUP();
     
+    crashThatFork = 1;
+    
     if(argc < 2) {
         fprintf(stderr, "This command should not be manually run by user.\nIt's worker of validator server.\nAs it was executed manually it will terminate.\n");
         return -1;
