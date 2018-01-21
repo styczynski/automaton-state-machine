@@ -27,22 +27,7 @@ typedef struct TransitionGraphImpl TransitionGraphImpl;
 /**
  * Type of transition graph (pointer to the actual data structure)
  *
- * Transition graph cotnains values:
- *
- *   - q0  initial state
- *   - A   the size of the alphabet: the alphabet is the set {a,...,x}, where 'x'-'a' = A-1
- *   
- *
  */
- N is the number of lines of the input;
-A is the size of the alphabet: the alphabet is the set {a,...,x}, where 'x'-'a' = A-1;
-Q is the number of states: the states are the set {0,...,Q-1};
-U is the number of universal states: universal states = {0, .., U-1}, existential states = {U, .., Q-1};
-F is the number of final states;
-q,r,p denotes some states;
-and a is a letter of the alphabet
-
-
 typedef TransitionGraphImpl* TransitionGraph;
 
 /**
@@ -60,9 +45,18 @@ struct TransitionGraphImpl {
 };
 
 /**
+ * Prints the transition graph to the standard output.
  *
- * @param[in] element : ListData
- * @return ListIterator
+ * Using the following format:
+ *
+ *    Transition graph: {
+ *       1 --[a]--> { 0 1 }
+ *       0 --[z]--> { 2 }
+ *       3 --[c]--> { 2 0 1 }
+ *       ...
+ *    }
+ * 
+ * @param[in] tg : Transition graph to be printed
  */
 void printTransitionGraph(const TransitionGraph tg) {
     printf("Transition graph: {\n");
@@ -81,6 +75,12 @@ void printTransitionGraph(const TransitionGraph tg) {
     printf("}\n");
 }
 
+/**
+ * Used to initialize transition graph.
+ * This method can be used to clean the graph.
+ * 
+ * @param[in] tg : Input transition graph
+ */
 void initTransitionGraph(TransitionGraph tg) {
     tg->q0 = 0;
     tg->A = 0;
@@ -98,12 +98,25 @@ void initTransitionGraph(TransitionGraph tg) {
     }
 }
 
+/**
+ * Creates new initialized and empty transition graph.
+ * 
+ * @returns New empty transition graph
+ */
 TransitionGraph newTransitionGraph() {
     TransitionGraph tg = MALLOCATE(TransitionGraphImpl);
     initTransitionGraph(tg);
     return tg;
 }
 
+/**
+ * Loads transition graph textual representation from standard input.
+ * For details on valid textual representation of transition graph see: loadTransitionGraph docs.
+ * 
+ * NOTE: Returned array must be freed.
+ *
+ * @returns Loaded allocated array with textual graph representation
+ */
 char* loadTransitionGraphDescFromStdin() {
     char buffer[FILE_BUF_SIZE];
     size_t contentSize = 1;
@@ -129,6 +142,15 @@ char* loadTransitionGraphDescFromStdin() {
     return content;
 }
 
+/**
+ * Loads transition graph textual representation from the given file.
+ * For details on valid textual representation of transition graph see: loadTransitionGraph docs.
+ *
+ * NOTE: Returned array must be freed.
+ *
+ * @param[in] input : Input file
+ * @returns Loaded allocated array with textual graph representation
+ */
 char* loadTransitionGraphDescFromFile(FILE* input) {
     fseek(input, 0, SEEK_END);
     long fsize = ftell(input);
@@ -143,6 +165,31 @@ char* loadTransitionGraphDescFromFile(FILE* input) {
     return buff;
 }
 
+/**
+ * Reads the transition graph from the given text array.
+ *
+ * Valid graph format is:
+ *
+ *   N A Q U F\n
+ *   q\n
+ *   [q]\n
+ *   [q a r [p]\n]
+ *   
+ *   where
+ *     N is the number of lines of the input;
+ *     A is the size of the alphabet: the alphabet is the set {a,...,x}, where 'x'-'a' = A-1;
+ *     Q is the number of states: the states are the set {0,...,Q-1};
+ *     U is the number of universal states: universal states = {0, .., U-1}, existential states = {U, .., Q-1};
+ *     F is the number of final states;
+ *     q, r, p denotes some states
+ *     and a is a letter of the alphabet
+ *
+ *  NOTE:
+ *     A sequence [wyr] denotes that the string wyr repeats a finite (greater than or equal to 0) number of times.
+ * 
+ * @param[in] input : Input text
+ * @param[in] tg    : Transition graph to be set
+ */
 void loadTransitionGraph(char** input, TransitionGraph tg) {
     
     if(input == NULL) return;
@@ -162,18 +209,13 @@ void loadTransitionGraph(char** input, TransitionGraph tg) {
     strGetline(line_buf_p, line_buf_s, input);
     sscanf(line_buf, "%d %d %d %d %d", &N, &(tg->A), &(tg->Q), &(tg->U), &(tg->F));
     
-    //fprintf(stderr, "GRAPH HEAD %d %d %d %d %d\n", N, tg->A, tg->Q, tg->U, tg->F);
-    
     strGetline(line_buf_p, line_buf_s, input);
     sscanf(line_buf, "%d", &(tg->q0));
-    
-    //fprintf(stderr, "GRAPH Q0 %d\n", tg->q0);
     
     strGetline(line_buf_p, line_buf_s, input);
     pos = 0;
     for(int i=0;i<tg->F;++i) {
         sscanf(line_buf+pos, "%d%n", &q, &npos);
-        //fprintf(stderr, "STATE GOOD Q %d\n", q);
         tg->acceptingStates[q] = 1;
         pos += npos;
     }
@@ -190,9 +232,6 @@ void loadTransitionGraph(char** input, TransitionGraph tg) {
            while(sscanf(line_buf+pos, "%d%n", &r, &npos)) {
                pos += npos;
                
-               //fprintf(stderr, "CONNECT %d -[%c]-> %d\n", q, a, r);
-               
-               //fprintf(stderr, "set [%d][%c][%d]\n", q, a, tg->size[q][a]);
                tg->graph[q][(int)(a-'a')][tg->size[q][(int)(a-'a')]++] = r;
                if(*((char*)(line_buf+pos)) == '\0') break;
            }

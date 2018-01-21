@@ -1,9 +1,32 @@
+/** @file
+*
+*  Autovalidator is the application to easily launch the server and testers using one command
+*  and provide synchronization.
+*
+*  Synchronization makes it easy to test with valgrind or to verify the results.
+*
+*  Usage:
+*
+*     # Spawns server and tester for each given tester file
+*     ./autovalidator <server_file> [<tester_file>...]
+*
+*     # -v flag recursively enable logging
+*     ./autovalidator -v <server_file> [<tester_file>...]
+*
+*
+*  Usage with valgrind for detailed leak checks and traced uninitialized variables (may be very slow):
+*
+*     valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all \
+*        --trace-children=yes --track-origins=yes ./autovalidator ../validator.in  ../tester1.in ../tester2.in
+*
+*
+*  @author Piotr Styczyński <piotrsty1@gmail.com>
+*  @copyright MIT
+*  @date 2018-01-21
+*/
 #include <stdio.h>
 #include <string.h>
 
-/*
- valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --trace-children=yes --track-origins=yes ./autovalidator ../validator.in  ../tester1.in ../tester2.in
-*/
 
 #include <stdio.h>
 #include <fcntl.h>
