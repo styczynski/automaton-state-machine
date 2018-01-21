@@ -1,3 +1,11 @@
+/** @file
+*
+*  Set of utilities udeful for logging data. (C99 standard)
+*
+*  @author Piotr Styczyński <piotrsty1@gmail.com>
+*  @copyright MIT
+*  @date 2018-01-21
+*/
 #ifndef __SYS_LOG_H__
 #define __SYS_LOG_H__
 
