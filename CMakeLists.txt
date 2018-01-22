@@ -19,7 +19,7 @@ endif ()
 set(CMAKE_VERBOSE_MAKEFILE OFF)
 
 # Compilation flags
-set(CMAKE_C_FLAGS "-std=c11 -Wall -Wextra -pedantic")
+set(CMAKE_C_FLAGS "-std=c11 -Wall -Wextra -pedantic -D_POSIX_C_SOURCE")
 
 #
 # Compilation flags:

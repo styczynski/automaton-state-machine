@@ -10,8 +10,14 @@
  * @date 2018-01-21
  */
 #include <stdio.h>
-#include <stddef.h>
+#include <stdlib.h>
 #include <signal.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <errno.h>
+#include <string.h>
+#include <stddef.h>
 #include <sys/prctl.h>
 
 #include "getline.h"
@@ -34,6 +40,7 @@ static int parent_terminated_sig = 0;
  * Handler invoked on SIG_PARENT_KILLED signal (when parent of the process is killed)
  */
 void parent_killed_sig_handler(int sig) {
+    (void) sig;
     parent_terminated_sig = 1;
 }
 

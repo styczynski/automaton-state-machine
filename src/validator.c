@@ -448,7 +448,7 @@ int main(int argc, char *argv[]) {
                     int retry_count = 0;
                     int worker_spawned = 1;
                     
-                    while(!processExec(&pid, "./run", "run", graphDataPipeIDStr, buffer, vFlag, NULL)) {
+                    while(!processExec(&pid, "./run", "run", graphDataPipeIDStr, buffer, vFlagArg, NULL)) {
                         ++retry_count;
                         if(retry_count >= SERVER_FORK_RETRY_COUNT) {
                             worker_spawned = 0;
