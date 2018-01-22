@@ -306,9 +306,14 @@ static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* 
     MsgPipeID acceptAsyncDataPipeID[branch_count];
     MsgPipe acceptAsyncDataPipe[branch_count];
     pid_t acceptAsyncPid[branch_count];
+    int opened_state[branch_count];
     
     if(branch_count <= 0) {
         return !is_existential_state;
+    }
+    
+    for(int j=0;j<branch_count;++j) {
+        opened_state[j] = 0;
     }
     
     for(int i=1;i<branch_count;++i) {
@@ -317,10 +322,28 @@ static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* 
         int status = processFork(&acceptAsyncPid[i]);
         
         if(status == -1) {
-            log_err(RUN, "Failed to fork subprocess");
-            exit(-1);
-        } else if(status == 1) {
+            opened_state[i] = 0;
+
+            // Failed to fork subprocess fallback into sync mode
+            log_warn(RUN, "Failed to fork subprocess fallback into sync operating mode.");
             
+            // Manually calculate the path for which fork() has failed
+            int localWorkload = 0;
+            int localValue = acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][i], depth+1, &localWorkload, parent_fork_count+branch_count-1);
+            if((is_existential_state && localValue) || (!is_existential_state && !localValue)) {
+                // Synchronize
+                if(processWaitForAll() == -1) {
+                    log_err(RUN, "Child exited abnormally, so terminate.");
+                    exit(-1);
+                }
+                // Close all unclosed pipes
+                for(int j=1;j<branch_count;++j) {
+                    if(opened_state[j]) msgPipeClose(&acceptAsyncDataPipe[j]);
+                }
+                return is_existential_state;
+            }
+            
+        } else if(status == 1) {
             MsgPipe parentPipe = msgPipeOpen(acceptAsyncDataPipeID[i]);
             
             int new_workload = 0;
@@ -335,12 +358,15 @@ static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* 
             
             processExit(0);
         } else if(status == 0) {
+            opened_state[i] = 1;
             acceptAsyncDataPipe[i] = msgPipeOpen(acceptAsyncDataPipeID[i]);
         }
     }
     
+    // Calculate in the original thread
     int originValue = acceptAsync_rec(tg, word, word_len, tg->graph[current_state][current_letter][0], depth+1, workload, parent_fork_count+branch_count-1);
     
+    // Synchronize
     if(processWaitForAll() == -1) {
         log_err(RUN, "Child exited abnormally, so terminate.");
         exit(-1);
@@ -348,7 +374,7 @@ static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* 
     
     if((is_existential_state && originValue) || (!is_existential_state && !originValue)) {
         for(int j=1;j<branch_count;++j) {
-            msgPipeClose(&acceptAsyncDataPipe[j]);
+            if(opened_state[j]) msgPipeClose(&acceptAsyncDataPipe[j]);
         }
         return is_existential_state;
     }
@@ -357,14 +383,15 @@ static int acceptAsync_node(int is_existential_state, TransitionGraph tg, char* 
         char* rcv = msgPipeRead(acceptAsyncDataPipe[i]);
         if((is_existential_state && strcmp(rcv, "A") == 0) || (!is_existential_state && strcmp(rcv, "A") != 0)) {
             for(int j=1;j<branch_count;++j) {
-                msgPipeClose(&acceptAsyncDataPipe[j]);
+                if(opened_state[j]) msgPipeClose(&acceptAsyncDataPipe[j]);
             }
             return is_existential_state;
         }
     }
     
+    // Close all unclosed pipes
     for(int j=1;j<branch_count;++j) {
-        msgPipeClose(&acceptAsyncDataPipe[j]);
+        if(opened_state[j]) msgPipeClose(&acceptAsyncDataPipe[j]);
     }
     
     return !is_existential_state;

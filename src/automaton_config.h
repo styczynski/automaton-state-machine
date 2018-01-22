@@ -12,6 +12,7 @@
 #ifndef __AUTOMATON_CONF_H__
 #define __AUTOMATON_CONF_H__
 
+
 /**
  * @def SERVER_TERMINATE_ON_RUN_FAILURE
  *    If this macro value is equal to 1 then server will imidiatelly terminate itself
@@ -104,5 +105,12 @@
  */
 #define DEBUG_ACCEPT_RUN        0
 
+/**
+ * @def SERVER_FORK_RETRY_COUNT
+ *   It the server has failed to fork the worker it will retry to do the fork.
+ *   The maximum number of such re-forks is set up by this macro value.
+ *
+ */
+#define SERVER_FORK_RETRY_COUNT 3
 
 #endif // __AUTOMATON_CONF_H__

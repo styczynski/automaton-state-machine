@@ -432,24 +432,51 @@ int main(int argc, char *argv[]) {
                      * Spawn the worker.
                      * If the -v option is present then it's passed to the worker process.
                      */
+                    char* vFlag = "-v";
+                    char* vFlagArg = NULL;
+                     
                     if(verboseMode) {
-                        if(!processExec(&pid, "./run", "run", graphDataPipeIDStr, buffer, "-v", NULL)) {
-                            log_err(SERVER, "Run fork failure");
-                            exit(-1);
-                        }
+                        vFlagArg = vFlag;
                     } else {
-                        if(!processExec(&pid, "./run", "run", graphDataPipeIDStr, buffer, NULL)) {
-                            log_err(SERVER, "Run fork failure");
-                            exit(-1);
-                        }
+                        vFlagArg = NULL;
                     }
                     
-                    log_ok(SERVER, "Forked run %d for word {%s} (loc_id=%d)", pid, buffer, loc_id);
+                    /*
+                     * This loops do the spawning.
+                     * If exec fails then rety a few times...
+                     */
+                    int retry_count = 0;
+                    int worker_spawned = 1;
                     
-                    rs.pid = pid;
+                    while(!processExec(&pid, "./run", "run", graphDataPipeIDStr, buffer, vFlag, NULL)) {
+                        ++retry_count;
+                        if(retry_count >= SERVER_FORK_RETRY_COUNT) {
+                            worker_spawned = 0;
+                            break;
+                        }
+                        sleep(1);
+                    }
                     
-                    // Save worker session
-                    HashMapSetV(&runSlots, pid_t, RunSlot, pid, rs);
+                    if(worker_spawned) {
+                        log_ok(SERVER, "Forked run %d for word {%s} (loc_id=%d)", pid, buffer, loc_id);
+                        rs.pid = pid;
+                        
+                        // Save worker session
+                        HashMapSetV(&runSlots, pid_t, RunSlot, pid, rs);
+                    } else {
+                        /*
+                         * Log the event
+                         *
+                         * In this scenario the worker could not be spawned so we do not save the session info
+                         * and try to continue normal execution.
+                         *
+                         * (we ommit one word)
+                         */
+                         log_err(SERVER, "Failed to fork worker, but continue anyway.");
+                         
+                         // Fix the tasks count after invalid fork
+                         --activeTasksCount;
+                    }
                     
                 }
             }

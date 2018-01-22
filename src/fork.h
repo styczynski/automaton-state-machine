@@ -83,7 +83,8 @@ int processExec(pid_t* pid, const char* path, const char* arg, ...) {
         va_end(ap);
 
         if(execve(path, argv, NULL) == -1) {
-            return 0;
+            syserr("Failed to execve in the forked process.");
+            exit(-1);
         }
         
         return 1;

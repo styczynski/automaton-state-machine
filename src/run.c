@@ -10,6 +10,10 @@
  * @date 2018-01-21
  */
 #include <stdio.h>
+#include <stddef.h>
+#include <signal.h>
+#include <sys/prctl.h>
+
 #include "getline.h"
 #include "automaton.h"
 #include "msg_queue.h"
@@ -18,6 +22,20 @@
 #include "syslog.h"
 
 #include "gcinit.h"
+
+/*
+ * Signal used when parent is killed
+ */
+#define SIG_PARENT_KILLED SIGUSR1
+
+static int parent_terminated_sig = 0;
+
+/*
+ * Handler invoked on SIG_PARENT_KILLED signal (when parent of the process is killed)
+ */
+void parent_killed_sig_handler(int sig) {
+    parent_terminated_sig = 1;
+}
 
 /*
  * Valid execution parameters:
@@ -35,6 +53,27 @@ int main(int argc, char *argv[]) {
     
     GC_SETUP();
     
+    /*
+     * When parent dies the program will receive SIG_PARENT_KILLED
+     */
+    if(prctl(PR_SET_PDEATHSIG, SIG_PARENT_KILLED) == -1) {
+        syserr("Failed to setup parent kill signal kernel request.");
+    }
+    
+    struct sigaction action;
+    sigset_t block_mask;
+    sigfillset (&block_mask);
+    action.sa_handler = parent_killed_sig_handler;
+    action.sa_mask = block_mask;
+    action.sa_flags = 0;
+    
+    /*
+     * Setup SIG_PARENT_KILLED signal handler
+     */
+    if (sigaction (SIG_PARENT_KILLED, &action, 0) == -1) {
+        syserr("Failed to setup parent kill signal handler.");
+    }
+    
     if(argc < 2) {
         fprintf(stderr, "This command should not be manually run by user.\nIt's worker of validator server.\nAs it was executed manually it will terminate.\n");
         return -1;
@@ -49,6 +88,12 @@ int main(int argc, char *argv[]) {
     
     char* word_to_parse = argv[2];
     
+    // Check if parent has died
+    if(parent_terminated_sig == 1) {
+        log_err(RUN, "Ups! The parent process has died - terminate abnormally.");
+        exit(-1);
+    }
+    
     // Queue to write termination status
     MsgQueue runOutputQueue = msgQueueOpen("/FinAutomRunOutQueue", LINE_BUF_SIZE, MSG_QUEUE_SIZE);
 
@@ -57,6 +102,12 @@ int main(int argc, char *argv[]) {
     MsgPipe graphDataPipe = msgPipeOpen(graphDataPipeID);
     
     log(RUN, "Ready.");
+    
+    // Check if parent has died
+    if(parent_terminated_sig == 1) {
+        log_err(RUN, "Ups! The parent process has died - terminate abnormally.");
+        exit(-1);
+    }
     
     // Load transition graph description
     char* transitionGraphDesc = msgPipeRead(graphDataPipe);
@@ -91,7 +142,11 @@ int main(int argc, char *argv[]) {
         log_ok(RUN, "Result: %s N", word_to_parse);
     }
     
-    log(RUN, "Terminate.");
+    // Check if parent has died
+    if(parent_terminated_sig == 1) {
+        log_err(RUN, "Ups! The parent process has died - terminate abnormally.");
+        exit(-1);
+    }
     
     // Commit results to the server
     msgQueueWritef(runOutputQueue, "run-terminate: %lld %d", (long long)getpid(), result);
@@ -99,6 +154,8 @@ int main(int argc, char *argv[]) {
     // Close all means of communication
     msgQueueClose(&runOutputQueue);
     msgPipeClose(&graphDataPipe);
+    
+    log(RUN, "Terminate.");
     
     return 0;
 }
