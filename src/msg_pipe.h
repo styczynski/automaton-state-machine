@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include "memalloc.h"
 #include "syslog.h"
 
@@ -51,6 +52,16 @@ struct MsgPipe {
 };
 
 /**
+ * GC Destructor for pipes
+ */
+DECL_GC_DESTRUCTOR(_pipe_close_) {
+   int descr = (int) (intptr_t) ptr;
+   if(descr != -1) {
+       close(descr);
+   }
+}
+
+/**
  * Create new pipe with given message size limit.
  * 
  * @param[in] msg_size : Limit for message length
@@ -63,6 +74,9 @@ MsgPipeID msgPipeCreate(const int msg_size) {
         syserr("msgPipeCreate failed due to pipe(...) error");
         msgpid.good = 0;
         return msgpid;
+    } else {
+        GC_NEW(200, msgpid.pipe_desc[0], _pipe_close_);
+        GC_NEW(200, msgpid.pipe_desc[1], _pipe_close_);
     }
     
     msgpid.buff_size = msg_size + 7;
@@ -169,6 +183,7 @@ int msgPipeCloseRead(MsgPipe* msgp) {
         return -1;
     }
     
+    GC_DEL(200, msgp->pipe_desc[0]);
     if (close(msgp->pipe_desc[0]) == -1) {
         syserr("msgPipeCloseRead failed due to close(desc=%d) error", msgp->pipe_desc[0]);
         return -1;
@@ -196,6 +211,7 @@ int msgPipeCloseWrite(MsgPipe* msgp) {
         return -1;
     }
     
+    GC_DEL(200, msgp->pipe_desc[1]);
     if (close(msgp->pipe_desc[1]) == -1) {
         syserr("msgPipeCloseWrite failed due to close(desc=%d) error", msgp->pipe_desc[1]);
         return -1;
@@ -362,6 +378,13 @@ int msgPipeWritef(MsgPipe msgp, const char* format, ...) {
     va_end(args);
     
     return msgPipeWrite(msgp, buffer);
+}
+
+/**
+ * GC Destructor for pipes
+ */
+DECL_GC_DESTRUCTOR(MsgPipeDestructor) {
+    msgPipeClose((MsgPipe*) ptr);
 }
 
 #endif // __MSG_PIPE_H__

@@ -21,6 +21,7 @@
 #define __GC_H__
 
 #include <stdio.h>
+#include <stdint.h>
 
 #ifndef ENABLE_GC
 
@@ -64,6 +65,30 @@
  * If the GC is not enabled by ENABLE_GC then usage of this macro has no effect.
  */
 #define GC_ON_FREE(PTR)
+
+/**
+ * @def GC_N(TYPEID, PTR, HANDLER)
+ *   Registers the fac that pointer @p PTR (or may be other iteger value) with custom integer tag (@p TYPEID)
+ *   must be destroyed with handler @p HANDLER.
+ *
+ *   This function is great for destroying custom objects with custom destructors.
+ *
+ *   NOTE:
+ *      GC_D(TYPEID, PTR) must be invoked after manually invoking destructor to prevent double execution.
+ */
+#define GC_N(TYPEID, PTR, HANDLER)  
+
+/**
+ * @def GC_N(TYPEID, PTR, HANDLER)
+ *   Unegisters the fact that pointer @p PTR (or may be other iteger value) with custom integer tag (@p TYPEID)
+ *   must be destroyed with handler @p HANDLER.
+ *
+ *   This function is great for destroying custom objects with custom destructors.
+ *
+ *   NOTE:
+ *      GC_D(TYPEID, PTR) must be invoked after manually invoking destructor to prevent double execution.
+ */
+#define GC_D(TYPEID, PTR)           
 
 /**
  * @def GC_SETUP()
@@ -151,13 +176,13 @@
 /*
  * Poitner to the GC implementation
  */
-static void (*__gc_mem_tree__funct)(int, void*) = NULL;
+static void (*__gc_mem_tree__funct)(int, void*, void*, void*) = NULL;
 
 /**
  * Proxy that executes the pointer implementation if it's not NULL.
  * It represents interface of the GC tree fucntion (__gc_mem_tree__funct).
  *
- * The function takes parameters (int mode, void* p)
+ * The function takes parameters (int mode, void* p, void* q, void* r)
  * Mode can be one of the following values:
  *
  *  ->  0 - p was just allocated
@@ -167,25 +192,29 @@ static void (*__gc_mem_tree__funct)(int, void*) = NULL;
  *  ->  4 - GC verbose allocation logging was enabled (p=1) or disabled (p=0)
  *  ->  5 - FORK_FREE was requested so you must free all the data without internal GC strucutres
  *          (these strucutres must be empty but not destroyed - we assume further usage of them)
+ *  ->  6 - GC_N - p (data of typeid = r) was allocated with handler so add its cleanup handler (passed as q parameter)
+ *  ->  7 - GC_D - p (data of typeid = r) was allocated with handler so remove its cleanup handler
  *
  **/
-static inline void __gc_mem_tree__proxy(int mode, void* p) {
+static inline void __gc_mem_tree__proxy(int mode, void* p, void* q, void* r) {
     if(__gc_mem_tree__funct != NULL) {
-        __gc_mem_tree__funct(mode, p);
+        __gc_mem_tree__funct(mode, p, q, r);
     }
 }
 
 #define GC_STATUS        (__is_gc__())
 #define GC_ON()          (__gc_on__())
 #define GC_OFF()         (__gc_off__())
-#define GC_ON_ALLOC(PTR) (__gc_mem_tree__proxy(0, (PTR)))
-#define GC_ON_FREE(PTR)  (__gc_mem_tree__proxy(1, (PTR)))
+#define GC_ON_ALLOC(PTR) (__gc_mem_tree__proxy(0, (PTR), NULL, NULL))
+#define GC_ON_FREE(PTR)  (__gc_mem_tree__proxy(1, (PTR), NULL, NULL))
+#define GC_N(TYPEID, PTR, HANDLER)  (__gc_mem_tree__proxy(6, (void*)(intptr_t)(PTR), (void*)(intptr_t)(HANDLER), (void*)(intptr_t)(TYPEID)))
+#define GC_D(TYPEID, PTR)           (__gc_mem_tree__proxy(7, (void*)(intptr_t)(PTR), NULL, (void*)(intptr_t)(TYPEID)))
 #define GC_SETUP()       (__gc_init__())
-#define GC_FREE_ALL()    (__gc_mem_tree__proxy(2, NULL))
-#define GC_FORK_FREE()   (__gc_mem_tree__proxy(5, NULL))
-#define GC_EXIT(CODE)    (__gc_mem_tree__proxy(3, (void*)(CODE)))
-#define GC_LOG_ON()      (__gc_mem_tree__proxy(4, (void*)(1)))
-#define GC_LOG_OFF()     (__gc_mem_tree__proxy(4, (void*)(0)))
+#define GC_FREE_ALL()    (__gc_mem_tree__proxy(2, NULL, NULL, NULL))
+#define GC_FORK_FREE()   (__gc_mem_tree__proxy(5, NULL, NULL, NULL))
+#define GC_EXIT(CODE)    (__gc_mem_tree__proxy(3, (void*)(CODE), NULL, NULL))
+#define GC_LOG_ON()      (__gc_mem_tree__proxy(4, (void*)(1), NULL, NULL))
+#define GC_LOG_OFF()     (__gc_mem_tree__proxy(4, (void*)(0), NULL, NULL))
 
 /*
  * Function to enable/disable GC during runtime
@@ -221,5 +250,35 @@ static inline int __is_gc__() {
 }
 
 #endif // ENABLE_GC
+
+
+typedef void (*GCCustomDestructor)(void*);
+
+/**
+ * @def DECL_GC_DESTRUCTOR(DESTRUCTOR_NAME)
+ *   Declare GC custom type destructor (to be triggered with GC_N/GC_D)
+ *   
+ *   Reference ptr variable to access destructed data pointer.
+ *
+ *   Destructors declared as this can be used as ordinary fucntions.
+ *
+ * Usage example:
+ * @code
+ *  
+ *    DECL_GC_DESTRUCTOR(my_destructor) {
+ *         // ptr here is pointer of type void*
+ *         printf("Destruct: %p", ptr);
+ *    }
+ *
+ *    // This defines a destructor called my_destructor
+ *
+ * @endcode
+ */
+#define DECL_GC_DESTRUCTOR(NAME) \
+  void NAME (void* ptr) 
+
+  
+#define GC_NEW(TYPEID, PTR, HANDLER)  GC_N(TYPEID, PTR, HANDLER)
+#define GC_DEL(TYPEID, PTR)           GC_D(TYPEID, PTR)
 
 #endif // __GC_H__

@@ -50,6 +50,9 @@ static inline void __onexit_handler_op__(int mode, OnExitHandler handler) {
     } else if(mode == 0) {
         __gc_handler_slot__ = handler;
     } else if(mode == -1) {
+        
+        if(__on_exit_called_mode__ == 1) return;
+        
         __on_exit_called_mode__ = 1;
         for(int i=0;i<__normal_handlers_slots_i__;++i) {
             if(__normal_handlers_slots__[i] != NULL) {

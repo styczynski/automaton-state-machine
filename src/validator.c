@@ -37,6 +37,7 @@
 #include "automaton.h"
 #include "msg_queue.h"
 #include "msg_pipe.h"
+#include "onexit.h"
 #include "fork.h"
 #include "syslog.h"
 #include "hashmap.h"
@@ -73,9 +74,30 @@ struct TesterSlot {
  */
 int verboseMode = 0;
 
+int slots_inited = 0;
+HashMap runSlots;
+HashMap testerSlots;
+
+/*
+ * Custom server exit handler to send exit messages to all of registered the testers
+ */
+void onExit() {
+    // There's nothing that we can do
+    // In case of slots_inited = 1 the slots are broken for sure
+    // We cannot read them
+    if(!slots_inited) return;
+    
+    // Broadcast exit command to all testers
+    LOOP_HASHMAP(&testerSlots, i) {
+        TesterSlot* ts = (TesterSlot*) HashMapGetValue(i);
+        msgQueueWritef(ts->testerInputQueue, "exit");
+    }
+}
+
 int main(int argc, char *argv[]) {
     
     GC_SETUP();
+    ExitHandlerSetup();
     
     log_set(0);
     for(int i=1;i<argc;++i) {
@@ -84,6 +106,15 @@ int main(int argc, char *argv[]) {
             verboseMode = 1;
         }
     }
+    
+    // Register custom server exit handler (note: it's executed before GC cleanup)
+    ExitHandlerAdd(onExit);
+    
+    // Server sessions for run and tester processes
+    HashMap runSlots = HashMapNew(HashMapIntCmp);
+    HashMap testerSlots = HashMapNew(HashMapIntCmp);
+    // Indicate initialization of slots hashmap
+    slots_inited = 1;
     
     // The final returned exit code during normal operation
     int server_status_code = 0;
@@ -120,10 +151,6 @@ int main(int argc, char *argv[]) {
     // If conditions for termination are met and shouldTerminate is true
     // then this flag is set and in the next server loop iteration server will exit
     int forceTermination = 0;
-    
-    // Server sessions for run and tester processes
-    HashMap runSlots = HashMapNew(HashMapIntCmp);
-    HashMap testerSlots = HashMapNew(HashMapIntCmp);
     
     // Server operation statistics
     int rcd_count = 0;

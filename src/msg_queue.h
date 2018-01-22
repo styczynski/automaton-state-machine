@@ -16,6 +16,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <stdint.h>
 #include <mqueue.h>
 #include <stdarg.h>
 #include "memalloc.h"
@@ -39,6 +40,16 @@ struct MsgQueue {
     int buff_size;
     int is_blocking;
 };
+
+/**
+ * GC Destructor for queues
+ */
+DECL_GC_DESTRUCTOR(_msgq_close_) {
+   mqd_t descr = (mqd_t) (intptr_t) ptr;
+   if(descr != -1) {
+       mq_close(descr);
+   }
+}
 
 /**
  * Opens new message queue.
@@ -97,6 +108,8 @@ MsgQueue msgQueueOpenEx(const char* q_name, const int msg_size, const int max_ms
         msgq.buff = NULL;
         msgq.buff_size = 0;
         return msgq;
+    } else {
+        GC_NEW(100, msgq.desc, _msgq_close_);
     }
 
     if (mq_getattr(msgq.desc, &msgq.mq_a)) {
@@ -319,10 +332,13 @@ int msgQueueAbandon(MsgQueue* msgq) {
 int msgQueueCloseEx(MsgQueue* msgq, int unlink) {
     if(msgq->name == NULL) return -1;
     
+    GC_DEL(100, msgq->desc);
+    
     if(mq_close(msgq->desc)) {
         syserr("msgQueueCloseEx failed due to mq_close(desc=%d) error", msgq->desc);
         return -1;
     }
+    
     
     if(unlink) {
         if(mq_unlink(msgq->name)) {
@@ -385,5 +401,6 @@ int msgQueueMakeBlocking(MsgQueue* msgq, int will_block) {
     *msgq = msgQueueOpenEx(q_name, msg_size, max_msg, will_block);
     return 1;
 }
+
 
 #endif // __MSG_QUEUE_H__
