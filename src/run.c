@@ -116,6 +116,8 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
     
+    log(RUN, "Wait for graph data");
+    
     // Load transition graph description
     char* transitionGraphDesc = msgPipeRead(graphDataPipe);
     if(transitionGraphDesc == NULL) {

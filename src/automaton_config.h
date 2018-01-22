@@ -30,7 +30,7 @@
  *    This means that fork's will occur only after parsing at least RUN_WORKLOAD_LIMIT nodes.
  *    Higher value means less worker processes.
  */
-#define RUN_WORKLOAD_LIMIT      0
+#define RUN_WORKLOAD_LIMIT      5
 
 /**
  * @def RUN_FORK_LIMIT
@@ -68,13 +68,13 @@
  * @def LINE_BUF_SIZE
  *    Defines maximum number of characters in single line
  */
-#define LINE_BUF_SIZE          1107
+#define LINE_BUF_SIZE          1020
 
 /**
  * @def FILE_BUF_SIZE
  *    Defines maximum number of bytes in single file
  */
-#define FILE_BUF_SIZE          100007
+#define FILE_BUF_SIZE          3000007
 
 /**
  * @def MSG_QUEUE_SIZE

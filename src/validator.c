@@ -162,6 +162,7 @@ int main(int argc, char *argv[]) {
     
     // Server event loop
     while(1) {
+        ++cycle_num;
         
         /*
          * Read all available (if any) incoming register events and start sessions for all the testers.
@@ -169,6 +170,7 @@ int main(int argc, char *argv[]) {
          */
         char* register_msg;
         do {
+            //log_info(SERVER, "Read register queue");
             register_msg = msgQueueRead(registerQueue);
             if(register_msg != NULL) {
                 
@@ -188,6 +190,8 @@ int main(int argc, char *argv[]) {
                     
                     // Save the session
                     HashMapSetV(&testerSlots, pid_t, TesterSlot, tester_pid, ts_new_val);
+                } else {
+                    log_err(SERVER, "Invalid register command!");
                 }
             }
         } while(register_msg != NULL);
@@ -220,6 +224,7 @@ int main(int argc, char *argv[]) {
          * Read termination message (if any) from the testers
          * This reading is NON BLOCKING.
          */
+        //log_info(SERVER, "Read output queue");
         char* run_term_msg = msgQueueRead(runOutputQueue);
         
         if(run_term_msg != NULL) {
@@ -300,6 +305,8 @@ int main(int argc, char *argv[]) {
                 
                 }
                 
+            } else {
+                log_err(SERVER, "Invalid run response!");
             }
         }
         
@@ -309,6 +316,7 @@ int main(int argc, char *argv[]) {
          * Wait for worker termination events
          * This operation is NON BLOCKING
          */
+        //log_info(SERVER, "Checkout children status");
         int children_status = processWaitForAllNonBlocking();
         if(children_status == -1) {
             /*
@@ -351,7 +359,13 @@ int main(int argc, char *argv[]) {
          *   - activeTasksCount <= 0        (there are no left tasks that are beeing executed)
          *
          */
-        if(activeTasksCount <= 0 && shouldTerminate && children_status == 0 && run_term_msg == NULL) {
+        int activeTasksCountM = 0;
+        LOOP_HASHMAP(&runSlots, i) {
+            ++activeTasksCountM;
+        }
+         
+        if((activeTasksCount <= 0 || activeTasksCountM <= 0) && shouldTerminate && children_status == 0 && run_term_msg == NULL) {
+            log_info(SERVER, "Request force termination (normal mode)");
             forceTermination = 1;
         }
         
@@ -359,7 +373,7 @@ int main(int argc, char *argv[]) {
          * If termination was not requested parse next input command.
          */
         if(!shouldTerminate) {
-            
+            //log_info(SERVER, "Read input queue");
             char* msg = msgQueueRead(reportQueue);
             
             if(msg != NULL) {
@@ -415,18 +429,13 @@ int main(int argc, char *argv[]) {
                     RunSlot rs;
                     rs.loc_id = loc_id;
                     rs.testerSourcePid = (pid_t) buffer_pid;
-                    rs.graphDataPipeID = msgPipeCreate(100);
+                    rs.graphDataPipeID = msgPipeCreate(FILE_BUF_SIZE);
                     rs.graphDataPipe = msgPipeOpen(rs.graphDataPipeID);
                     
-                    // Send the graph to the worker
-                    msgPipeWrite(rs.graphDataPipe, transitionGraphDesc);
-
-                    char graphDataPipeIDStr[100];
+                    char graphDataPipeIDStr[1000];
                     msgPipeIDToStr(rs.graphDataPipeID, graphDataPipeIDStr);
                     
                     pid_t pid;
-                    
-                    ++activeTasksCount;
                     
                     /* 
                      * Spawn the worker.
@@ -448,7 +457,10 @@ int main(int argc, char *argv[]) {
                     int retry_count = 0;
                     int worker_spawned = 1;
                     
+                    log_info(SERVER, "Spawn worker...");
+                    
                     while(!processExec(&pid, "./run", "run", graphDataPipeIDStr, buffer, vFlagArg, NULL)) {
+                        log_err(SERVER, "Worker process has failed, try to retry...");
                         ++retry_count;
                         if(retry_count >= SERVER_FORK_RETRY_COUNT) {
                             worker_spawned = 0;
@@ -458,11 +470,19 @@ int main(int argc, char *argv[]) {
                     }
                     
                     if(worker_spawned) {
+                        
                         log_ok(SERVER, "Forked run %d for word {%s} (loc_id=%d)", pid, buffer, loc_id);
                         rs.pid = pid;
                         
                         // Save worker session
                         HashMapSetV(&runSlots, pid_t, RunSlot, pid, rs);
+                        
+                        log_info(SERVER, "Push graph into pipe");
+                        
+                        // Send the graph to the worker
+                        msgPipeWrite(rs.graphDataPipe, transitionGraphDesc);
+                        ++activeTasksCount;
+
                     } else {
                         /*
                          * Log the event
@@ -474,10 +494,10 @@ int main(int argc, char *argv[]) {
                          */
                          log_err(SERVER, "Failed to fork worker, but continue anyway.");
                          
-                         // Fix the tasks count after invalid fork
-                         --activeTasksCount;
                     }
                     
+                } else {
+                    log_err(SERVER, "Invalid server input command!");
                 }
             }
         }
