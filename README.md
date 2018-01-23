@@ -497,6 +497,6 @@ Intuitively, *r* can be seen as a path in a run.
   
   One can assume that the length of the supplied words will not exceed the constant *MAXLEN = 1000*.
 
-[screenshot]: https://gitlab.com/styczynski/finite-automaton/raw/master/static/screenshot1.png
+[screenshot]: https://raw.githubusercontent.com/styczynski/automaton-state-machine/master/static/screenshot1.png
 
-[diagram]: https://gitlab.com/styczynski/finite-automaton/raw/master/static/automaton_com_sch1.png
+[diagram]: https://github.com/styczynski/automaton-state-machine/blob/master/static/automaton_com_sch1.png?raw=true
